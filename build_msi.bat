@@ -1,6 +1,8 @@
 @echo off
 rem Builds dist\NetISOManager-<version>-x64.msi: the app, its launcher and the user guides.
-rem Needs Python 3 and the WiX command line tool (dotnet tool install --global wix --version 5.0.2).
+rem Needs Python 3 and the WiX command line tool with its firewall extension:
+rem   dotnet tool install --global wix --version 5.0.2
+rem   wix extension add -g WixToolset.Firewall.wixext/5.0.2
 setlocal
 cd /d "%~dp0"
 set VERSION=1.0.0
@@ -11,5 +13,5 @@ build_env\Scripts\python.exe -m PyInstaller --noconfirm --clean --onedir --windo
     --add-data "%~dp0docs;docs" --distpath "%~dp0dist\onedir" ^
     --workpath "%~dp0build_env\work" --specpath "%~dp0build_env" ^
     "%~dp0app\NetISOManager.pyw" || exit /b 1
-wix build -arch x64 -d Version=%VERSION% -d "Source=%~dp0dist\onedir\NetISO Manager" ^
+wix build -arch x64 -ext WixToolset.Firewall.wixext -d Version=%VERSION% -d "Source=%~dp0dist\onedir\NetISO Manager" ^
     -o "%~dp0dist\NetISOManager-%VERSION%-x64.msi" "%~dp0installer\NetISOManager.wxs"

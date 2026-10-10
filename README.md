@@ -21,7 +21,7 @@ Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et
 
 - Une Xbox 360 RGH ou JTAG avec DashLaunch et Aurora 0.7b.
 - Le plugin `NetISO.xex` 1.0 de cOz, charge par DashLaunch. Il n'est pas fourni ici.
-- Un PC Windows sur le meme reseau que la console. La version `NetISO Manager.exe` des releases ne demande rien d'autre; pour lancer depuis les sources il faut Python 3 (Tkinter inclus).
+- Un PC Windows 64 bits sur le meme reseau que la console. L'installateur `NetISOManager-x64.msi` des releases contient tout, guide d'utilisation compris; pour lancer depuis les sources il faut Python 3 (Tkinter inclus).
 - Vos propres ISO, issus de jeux que vous possedez.
 
 ## Installation sur la console
@@ -39,7 +39,7 @@ Le Nova.xex modifie de la methode NetISO classique n'est pas necessaire.
 
 ## Utilisation
 
-1. Lancez `NetISO Manager.exe` (ou `NetISO Manager.bat` depuis les sources).
+1. Installez `NetISOManager-x64.msi` puis lancez NetISO Manager depuis le Bureau (ou `NetISO Manager.bat` depuis les sources).
 2. Ajoutez vos dossiers d'ISO.
 3. Renseignez l'adresse IP de la console et, si besoin, les identifiants FTP d'Aurora.
 4. Cliquez sur "Synchroniser avec Aurora", Aurora etant ouvert sur la console.
@@ -69,9 +69,11 @@ Les details techniques, dont les obstacles rencontres, sont dans [docs/NOTES_TEC
 
 `app/stub.xex` est fourni compile. Pour le recompiler: Visual Studio avec le SDK Xbox 360, configuration `Release Retail | Xbox 360`, et la bibliotheque xkelib. Le chemin vers xkelib est a ajuster dans `stub/stub.vcxproj` (propriete `XkelibDir`).
 
-## Construire l'executable
+## Construire l'installateur
 
-`build_exe.bat` cree `dist\NetISO Manager.exe` avec PyInstaller.
+`build_msi.bat` cree `dist\NetISOManager-<version>-x64.msi` avec PyInstaller et WiX 5. L'installateur pose l'application dans `Program Files`, cree les raccourcis (application et guides), et ajoute une regle de pare-feu limitee a ce programme, au port TCP 4323, aux reseaux prives et au sous-reseau local. `build_exe.bat` produit a la place un executable unique, portable.
+
+Le guide d'utilisation est dans `docs/` (francais et anglais).
 
 ## Tests
 
