@@ -21,6 +21,8 @@ _TEXTS = {
     "col_folder": ("Fichier", "File", "الملف"),
     "disc_of": ("{disc} sur {count}", "{disc} of {count}", "{disc} من {count}"),
     "next_disc": ("Changer de disque", "Switch disc", "تغيير القرص"),
+    "group_discs": ("Une seule tuile par jeu multi-disques", "One tile per multi-disc game",
+                    "اختصار واحد للعبة متعددة الأقراص"),
     "disc_selected": ("{name} : le disque {disc} sera lancé", "{name}: disc {disc} will be launched",
                       "{name}: سيتم تشغيل القرص {disc}"),
     "disc_in_use": ("{name} est en cours de jeu : le changement s'appliquera au prochain lancement.",
@@ -91,6 +93,7 @@ _TEXTS = {
     "log_frame": ("Journal", "Log", "السجل"),
     "choose_folder": ("Choisir un dossier d'ISO", "Choose an ISO folder", "اختر مجلد ملفات ISO"),
     "support_link": ("♥ Soutenir le projet", "♥ Support the project", "♥ ادعم المشروع"),
+    "guide_link": ("Guide d'utilisation", "User guide", "دليل الاستخدام"),
     "welcome": (
         "Bienvenue dans NetISO Manager.\n\n"
         "Cette application est gratuite et le restera. Si elle vous est utile, vous pouvez "

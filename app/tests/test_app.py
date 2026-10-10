@@ -110,6 +110,13 @@ class WindowTests(unittest.TestCase):
         self.app._open_donation_page()
         self.assertEqual(self.opened, ["https://ko-fi.com/x360remap"])
 
+    def test_guide_opens_in_the_app_language_and_falls_back_to_english(self):
+        self.app._open_guide()
+        self.assertTrue(self.opened[-1].endswith("docs/Guide_fr.html"))
+        netiso_i18n.set_language("ar")
+        self.app._open_guide()
+        self.assertTrue(self.opened[-1].endswith("docs/Guide_en.html"))
+
     def test_welcome_is_shown_once_and_opens_the_page_only_on_yes(self):
         answers = [False, True]
         asked = []
@@ -174,6 +181,17 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(rows["Saga"][3], "2 sur 2")
         self.assertTrue(rows["Saga"][5].endswith("Saga (USA) (Disc 2).iso"))
         self.assertEqual(self.manager.load_settings()["active_discs"], {"33333333": 2})
+
+    def test_ungrouping_shows_one_row_per_disc(self):
+        make_iso(os.path.join(self.isos, "Saga (USA) (Disc 1).iso"), 0, make_xex(0x33333333, 1, 1, 2))
+        make_iso(os.path.join(self.isos, "Saga (USA) (Disc 2).iso"), 0, make_xex(0x33333333, 2, 2, 2))
+        self.app.group_discs.set(False)
+        self.app.scanned = None
+        self.app._scan()
+        self.pump(lambda: self.app.scanned is not None)
+        self.assertEqual([r[0] for r in self.rows()],
+                         ["First Game", "Saga (Disc 1)", "Saga (Disc 2)"])
+        self.assertFalse(self.manager.load_settings()["group_discs"])
 
     def test_nothing_is_offered_when_detection_is_switched_off(self):
         offers = []

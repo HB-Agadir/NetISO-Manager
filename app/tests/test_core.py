@@ -108,6 +108,16 @@ class TileTests(TempDirCase):
         self.assertTrue(tiles[0].multi_disc)
         self.assertFalse(tiles[1].multi_disc)
 
+    def test_without_grouping_every_disc_keeps_its_own_tile(self):
+        games = [self.game("Big Game (USA) (Disc 1).iso", 0x500, 1, 2),
+                 self.game("Big Game (USA) (Disc 2).iso", 0x500, 2, 2),
+                 self.game("Other (Europe).iso", 0x600)]
+        tiles = netiso_iso.build_tiles(games, group_discs=False)
+        self.assertEqual([t.name for t in tiles],
+                         ["Big Game (Disc 1)", "Big Game (Disc 2)", "Other"])
+        self.assertFalse(any(t.multi_disc for t in tiles))
+        self.assertEqual([t.game().disc for t in tiles], [1, 2, 1])
+
     def test_a_tile_launches_disc_1_until_another_disc_is_chosen(self):
         tile = netiso_iso.build_tiles([self.game("G (Disc 1).iso", 7, 1, 2),
                                        self.game("G (Disc 2).iso", 7, 2, 2)])[0]

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 64-bit MSI for NetISO Manager. Built with WiX: see build_msi.bat.
+     Source is the PyInstaller folder build (dist\onedir\NetISO Manager). -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="NetISO Manager" Manufacturer="HB-Agadir" Version="$(var.Version)"
+           UpgradeCode="6C795C7F-AF8D-4A0B-AA58-EFBFAF40A28E" Scope="perMachine" Compressed="yes">
+    <SummaryInformation Description="NetISO Manager $(var.Version) (64-bit)" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of NetISO Manager is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="NetISO Manager" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="MenuFolder" Name="NetISO Manager" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="Main" Title="NetISO Manager">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="MainExe" />
+      <ComponentRef Id="GuideShortcuts" />
+    </Feature>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.Source)\**">
+        <Exclude Files="$(var.Source)\NetISO Manager.exe" />
+      </Files>
+    </ComponentGroup>
+
+    <Component Id="MainExe" Directory="INSTALLFOLDER">
+      <File Id="MainExeFile" Source="$(var.Source)\NetISO Manager.exe" KeyPath="yes">
+        <Shortcut Id="StartMenuApp" Directory="MenuFolder" Name="NetISO Manager"
+                  WorkingDirectory="INSTALLFOLDER" Advertise="no" />
+        <Shortcut Id="DesktopApp" Directory="DesktopFolder" Name="NetISO Manager"
+                  WorkingDirectory="INSTALLFOLDER" Advertise="no" />
+      </File>
+    </Component>
+
+    <Component Id="GuideShortcuts" Directory="MenuFolder">
+      <Shortcut Id="GuideFr" Name="Guide d'utilisation (français)"
+                Target="[INSTALLFOLDER]_internal\docs\Guide_fr.html" />
+      <Shortcut Id="GuideEn" Name="User guide (English)"
+                Target="[INSTALLFOLDER]_internal\docs\Guide_en.html" />
+      <RemoveFolder Id="RemoveMenuFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\NetISOManager" Name="installed" Type="integer"
+                     Value="1" KeyPath="yes" />
+    </Component>
+  </Package>
+</Wix>

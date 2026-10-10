@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetISO Manager - User guide</title>
+<style>
+  :root { --bg: #ffffff; --fg: #1d2330; --muted: #5b6577; --line: #d9dee7; --accent: #107c10; --box: #f3f6fa; --warn: #fff6e0; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171d; --fg: #e6e9ef; --muted: #9aa4b5; --line: #2c3340; --accent: #5dc35d; --box: #1c2129; --warn: #332a12; }
+  }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.6 "Segoe UI", Arial, sans-serif; margin: 0; }
+  main { max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 30px; margin: 8px 0 4px; }
+  h2 { font-size: 22px; margin: 40px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin: 24px 0 4px; }
+  p.lead { color: var(--muted); margin-top: 0; }
+  ol, ul { padding-left: 24px; }
+  li { margin: 6px 0; }
+  code, kbd { background: var(--box); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; font: 14px Consolas, monospace; }
+  .step { background: var(--box); border-left: 4px solid var(--accent); border-radius: 4px; padding: 12px 16px; margin: 16px 0; }
+  .step b.n { color: var(--accent); }
+  .note { background: var(--warn); border-radius: 4px; padding: 10px 16px; margin: 16px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--box); }
+  nav a { color: var(--accent); margin-right: 14px; white-space: nowrap; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<h1>NetISO Manager</h1>
+<p class="lead">Play the Xbox 360 ISOs stored on your PC straight from the Aurora game list.</p>
+<nav>
+  <a href="#need">What you need</a>
+  <a href="#setup">Setup in 5 steps</a>
+  <a href="#play">Playing</a>
+  <a href="#discs">Multi-disc games</a>
+  <a href="#trouble">Troubleshooting</a>
+</nav>
+
+<h2 id="how">How it works</h2>
+<p>Your ISO files stay on the PC. NetISO Manager creates a small "tile" for each game and sends it to the console. Aurora shows that tile like any other game, with its cover. When you launch the game, the console reads it from the PC over the network.</p>
+<p>So the PC must stay on, with NetISO Manager open, while you play these games. Games already installed on the console keep working whether the PC is on or not.</p>
+
+<h2 id="need">What you need</h2>
+<ul>
+  <li>An <b>RGH or JTAG</b> Xbox 360 with <b>Aurora</b> and <b>DashLaunch</b> installed.</li>
+  <li>The <code>NetISO.xex</code> file (NetISO 1.0 plugin by cOz). It is not included with this software.</li>
+  <li>A 64-bit Windows PC.</li>
+  <li>The console and the PC on the same network, preferably with an <b>Ethernet cable</b>.</li>
+  <li>Your games as <code>.iso</code> files.</li>
+</ul>
+
+<h2 id="setup">Setup in 5 steps</h2>
+
+<div class="step"><b class="n">Step 1.</b> <b>Open NetISO Manager</b> on the PC.
+<p>The first time the server starts, Windows may show a firewall alert. Tick "Private networks" and click "Allow access". Without it the console cannot reach the PC.</p></div>
+
+<div class="step"><b class="n">Step 2.</b> <b>Point it at your game folders.</b>
+<p>In area 1, click "Add folder..." and choose the folder that holds your ISOs. Repeat for every folder, even on different drives. Your games appear in area 2.</p></div>
+
+<div class="step"><b class="n">Step 3.</b> <b>Link the console.</b>
+<ol>
+  <li>Turn the console on and leave it in Aurora.</li>
+  <li>Find its IP address in the network settings of the console or of Aurora (example: <code>192.168.1.102</code>).</li>
+  <li>In area 3 of NetISO Manager, type that address in "Console IP address".</li>
+  <li>Click <b>"Install the plugin on the console"</b>. If asked, show where your <code>NetISO.xex</code> file is.</li>
+  <li><b>Restart the console.</b></li>
+</ol>
+<p>You only do this once.</p></div>
+
+<div class="step"><b class="n">Step 4.</b> <b>Send your games.</b>
+<p>Check that area 4 says "Running". If not, click "Start server". Then click <b>"Sync with Aurora"</b> and wait for "Done" in the log.</p></div>
+
+<div class="step"><b class="n">Step 5.</b> <b>Show the folder to Aurora.</b>
+<ol>
+  <li>In Aurora, open the settings, Content section, then the scan path manager.</li>
+  <li>Add the path <code>Hdd1:\NetISO</code> with a scan depth of <b>2</b>.</li>
+  <li>Run a scan.</li>
+</ol>
+<p>You only do this once. Your games appear in the list with their covers.</p></div>
+
+<h2 id="play">Playing</h2>
+<ol>
+  <li>On the PC, NetISO Manager is open and its server is "Running".</li>
+  <li>On the console, pick a game in Aurora and press <kbd>A</kbd>.</li>
+  <li>The screen stays black for a second or two, then the game starts.</li>
+</ol>
+<p>To quit: Guide button, then back to Aurora, like any other game.</p>
+
+<h3>Adding a game later</h3>
+<p>Copy the new ISO into one of your folders. NetISO Manager notices it and offers to transfer it. Answer "Yes", then run a scan in Aurora.</p>
+
+<h3>Games already installed on the console</h3>
+<p>When a game is both on the console and as an ISO on the PC, only the console copy shows up: no duplicate. If you delete the game from the console to free space, click "Sync with Aurora": it comes back, played from the PC this time.</p>
+
+<h3>Set and forget</h3>
+<p>Tick "Start the server when the app opens" and "Start with Windows". The software then starts with your PC, minimized.</p>
+
+<h2 id="discs">Multi-disc games</h2>
+<p>A game that spans several discs takes a single slot in Aurora. You pick the disc with the controller as you launch the game:</p>
+<table>
+  <tr><th>Action</th><th>Result</th></tr>
+  <tr><td><kbd>A</kbd> alone</td><td>Launches the disc used last time</td></tr>
+  <tr><td><kbd>A</kbd>, then hold the <b>right trigger</b></td><td>Moves to the next disc</td></tr>
+  <tr><td><kbd>A</kbd>, then hold the <b>left trigger</b></td><td>Goes back to the previous disc</td></tr>
+</table>
+<p>When a game asks for disc 2: go back to Aurora, then launch the same game again while holding the right trigger. Your save continues on the new disc.</p>
+<p>You can also pick the disc on the PC: select the game in area 2 and click "Switch disc".</p>
+<h3>Prefer to see every disc in Aurora?</h3>
+<p>Untick "One tile per multi-disc game" under the game list, then click "Sync with Aurora" and run a scan. Each disc then has its own slot in Aurora and launches directly, without the triggers.</p>
+
+<h2 id="trouble">Troubleshooting</h2>
+<table>
+  <tr><th>What you see</th><th>What to do</th></tr>
+  <tr><td>The game does not start and you are back in Aurora</td><td>Check that the PC is on, NetISO Manager is open and area 4 says "Running". The log should show "Console connected".</td></tr>
+  <tr><td>The log never shows "Console connected"</td><td>Redo step 3 and restart the console. Also check the Windows firewall (step 1). If the PC's IP address has changed, redo step 3.</td></tr>
+  <tr><td>"Port 4323 is already used"</td><td>Another program holds that port: another NetISO server left open, or sometimes an antivirus. Close the other server. If nothing helps, restart the PC.</td></tr>
+  <tr><td>"Sync failed"</td><td>Aurora must be open on the console during the sync. Check the console's IP address. The FTP user and password are Aurora's (<code>xboxftp</code> / <code>xboxftp</code> by default).</td></tr>
+  <tr><td>The games do not show up in Aurora</td><td>Redo step 5 and run a scan again.</td></tr>
+  <tr><td>A game shows up without a cover</td><td>Aurora downloads covers itself when the console has Internet access. Some install or add-on discs have no cover.</td></tr>
+  <tr><td>An ISO is marked "Skipped" in the log</td><td>The file is not a valid Xbox 360 ISO, or it is still being copied.</td></tr>
+  <tr><td>Slow loading or stutter</td><td>Use an Ethernet cable instead of Wi-Fi. The console tops out at about 11 MB per second.</td></tr>
+</table>
+
+<div class="note"><b>Antivirus.</b> NetISO Manager sends nothing to the Internet: it only talks to your console, on your own network. If your antivirus asks, allow it on the private network.</div>
+
+<h2 id="support">Support the project</h2>
+<p>NetISO Manager is free and will stay free. If you find it useful, you can support its development: <a href="https://ko-fi.com/x360remap">ko-fi.com/x360remap</a></p>
+<p class="lead">Use this software with copies of games you own. Thanks to cOz for the NetISO plugin and DashLaunch, to tuxuser for netiso-srv and to Team Phoenix for Aurora.</p>
+</main>
+</body>
+</html>

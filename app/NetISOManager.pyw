@@ -25,6 +25,8 @@ STUB_PATH = os.path.join(APP_DIR, "stub.xex")
 SETTINGS_PATH = os.path.join(os.environ.get("APPDATA", APP_DIR), "NetISOManager", "settings.json")
 TRACE_PATH = os.path.join(os.path.dirname(SETTINGS_PATH), "server_trace.log")
 DONATION_URL = "https://ko-fi.com/x360remap"
+# The guide ships inside the bundle when frozen, beside the app folder otherwise.
+DOCS_DIRS = (os.path.join(APP_DIR, "docs"), os.path.join(APP_DIR, "..", "docs"))
 WATCH_INTERVAL_MS = 15000
 STATUS_INTERVAL_MS = 1000
 PROMPT_NAMES_MAX = 8
@@ -33,6 +35,7 @@ DEFAULTS = {
     "folders": [],
     "recursive": True,
     "auto_detect": True,
+    "group_discs": True,
     "console_ip": "",
     "ftp_user": "xboxftp",
     "ftp_password": "xboxftp",
@@ -126,6 +129,9 @@ class App(tk.Tk):
         support = ttk.Label(top, text=tr("support_link"), foreground="#b03060", cursor="hand2")
         support.pack(side="left")
         support.bind("<Button-1>", lambda _event: self._open_donation_page())
+        guide = ttk.Label(top, text=tr("guide_link"), foreground="#1a5fb4", cursor="hand2")
+        guide.pack(side="left", padx=18)
+        guide.bind("<Button-1>", lambda _event: self._open_guide())
 
         folders = ttk.LabelFrame(body, text=tr("folders_frame"))
         folders.pack(fill="x", **pad)
@@ -149,6 +155,9 @@ class App(tk.Tk):
         bar = ttk.Frame(games)
         bar.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
         ttk.Button(bar, text=tr("next_disc"), command=self._next_disc).pack(side="left")
+        self.group_discs = tk.BooleanVar(value=self.settings["group_discs"])
+        ttk.Checkbutton(bar, text=tr("group_discs"), variable=self.group_discs,
+                        command=self._scan).pack(side="left", padx=16)
         columns = ("name", "state", "title", "disc", "size", "file")
         self.tree = ttk.Treeview(games, columns=columns, show="headings", height=8,
                                  selectmode="browse")
@@ -243,6 +252,15 @@ class App(tk.Tk):
     def _open_donation_page(self):
         webbrowser.open(DONATION_URL)
 
+    def _open_guide(self):
+        """Opens the user guide in the app's language, in English when there is no translation."""
+        for name in ("Guide_%s.html" % netiso_i18n.language(), "Guide_en.html"):
+            for folder in DOCS_DIRS:
+                path = os.path.abspath(os.path.join(folder, name))
+                if os.path.exists(path):
+                    webbrowser.open("file:///" + path.replace(os.sep, "/"))
+                    return
+
     def _welcome(self):
         """Shown once, at the first start: says the app is free and how to support it."""
         self.settings["welcome_shown"] = True
@@ -316,6 +334,7 @@ class App(tk.Tk):
             "folders": list(self.folder_list.get(0, "end")),
             "recursive": self.recursive.get(),
             "auto_detect": self.auto_detect.get(),
+            "group_discs": self.group_discs.get(),
             "console_ip": self.console_ip.get().strip(),
             "ftp_user": self.ftp_user.get(),
             "ftp_password": self.ftp_password.get(),
@@ -346,12 +365,14 @@ class App(tk.Tk):
         settings = self._collect_settings()
         save_settings(settings)
         folders, recursive = list(settings["folders"]), settings["recursive"]
+        group_discs = settings["group_discs"]
         self.prompt_next_scan = prompt
         self._log(tr("scanning", count=len(folders)))
 
         def work():
             snapshot = netiso_iso.snapshot(folders, recursive)
-            self.events.put(("scanned", netiso_iso.scan(folders, recursive) + (snapshot,)))
+            self.events.put(("scanned", netiso_iso.scan(folders, recursive, group_discs)
+                             + (snapshot,)))
 
         threading.Thread(target=work, daemon=True).start()
 

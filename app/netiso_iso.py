@@ -188,15 +188,17 @@ def tile_name(title, taken):
     return name
 
 
-def build_tiles(games):
-    """Groups the discs of a multi-disc game under a single tile.
+def build_tiles(games, group_discs=True):
+    """Turns the ISOs into tiles.
 
-    A second copy of a disc already seen (another region, a duplicate file)
-    gets a tile of its own.
+    With group_discs, the discs of a multi-disc game share a single tile; a
+    second copy of a disc already seen (another region, a duplicate file) gets
+    a tile of its own. Without it, every ISO is a tile, as in a plain list.
     """
     groups, order = {}, []
     for game in games:
-        key = (game.title_id,) if game.discs > 1 else (game.title_id, id(game))
+        grouped = group_discs and game.discs > 1
+        key = (game.title_id,) if grouped else (game.title_id, id(game))
         if key in groups and any(other.disc == game.disc for other in groups[key]):
             key = (game.title_id, id(game))
         if key not in groups:
@@ -252,7 +254,7 @@ def is_being_written(path):
         return True
 
 
-def scan(folders, recursive):
+def scan(folders, recursive, group_discs=True):
     """Returns (tiles, errors) for every ISO in the folders; errors are (path, message)."""
     games, errors = [], []
     for path in find_isos(folders, recursive):
@@ -262,7 +264,7 @@ def scan(folders, recursive):
             errors.append((path, str(error)))
             continue
         games.append(Game(path, clean_title(path), title_id, media_id, disc, discs))
-    return build_tiles(games), errors
+    return build_tiles(games, group_discs), errors
 
 
 def tile_files(stub, tile, message=""):
