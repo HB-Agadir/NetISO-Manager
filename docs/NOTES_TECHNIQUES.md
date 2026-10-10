@@ -104,6 +104,14 @@ A valider: le comportement des title updates (le stub porte le meme Title ID et 
 - Lanceur 1.0 valide sur console pour le chemin normal et devient `app/stub.xex`. Non observes: la notification a l'ecran, et le cas d'un nom de jeu inconnu du serveur (retour a Aurora avant la fin de l'attente, sans message).
 - Changement de disque sans quitter le jeu: demanderait un petit plugin resident qui emet la commande de montage sur un raccourci manette. Non realise.
 
+## Entrees fantomes dans la liste d'Aurora (2026-10-10)
+
+- Constat: Aurora ne retire jamais de sa liste (`Data\Databases\content.db`, table `ContentItems`) un jeu dont le dossier a disparu. Chaque tuile supprimee ou renommee reste donc affichee, en double de la nouvelle. Mesure sur la console de test: 82 entrees dont 21 tuiles NetISO disparues.
+- `content.db` et `settings.db` sont lisibles par le FTP d'Aurora pendant qu'il tourne (`/Game/Data/Databases/`), mais pas par XBDM (acces refuse). Les modifier de l'exterieur pendant qu'Aurora les utilise n'est pas sur.
+- Lu dans l'image memoire d'Aurora 0.7b.2: permissions de script valides `http`, `ini`, `filesystem`, `settings`, `sql`; fonctions `Sql.Execute`, `Sql.ExecuteFetchRows`, `Script.RefreshListOnExit`; Aurora nomme `Config` la base des reglages (`Config.ScanPaths`) et utilise lui-meme `DELETE FROM ContentItems WHERE Id = ?`.
+- Realise: apres chaque synchronisation, l'application lit les deux bases par FTP, repere les entrees du chemin de scan des tuiles dont le dossier n'existe plus, et depose un script utilitaire Aurora (`User\Scripts\Utility\NetISO Cleanup\Main.lua`) qui supprime exactement ces Id, ainsi que leurs references dans `UserRecentGames`, `UserFavorites`, `UserHidden` et `TitleSettings`. Les jeux hors du dossier des tuiles ne sont jamais vises. L'utilisateur lance le script depuis Aurora.
+- A valider sur console: l'execution du script (que `Sql.Execute` agit bien sur la base de contenu et que le prefixe `Config.` est accepte).
+
 ## Questions ouvertes
 
 1. Title updates: s'appliquent-ils a un jeu lance par une tuile qui porte le meme Title ID et Media ID?

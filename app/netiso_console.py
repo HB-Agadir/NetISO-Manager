@@ -4,8 +4,12 @@ installs the plugin configuration."""
 import ftplib
 import hashlib
 import io
+import os
 import re
+import sqlite3
 import struct
+import tempfile
+import unicodedata
 
 import netiso_iso
 from netiso_i18n import tr
@@ -17,6 +21,12 @@ XEX_HEADER_READ = 0x8000
 SCAN_DEPTH = 2
 LAUNCH_INI_PATHS = ("/Hdd1/launch.ini", "/Usb0/launch.ini", "/Usb1/launch.ini")
 DEFAULT_PLUGIN_PATH = "Hdd:\\Apps\\NetISO.xex"
+# Aurora's own folder is the FTP drive "Game" while Aurora is running.
+AURORA_CONTENT_DB = "/Game/Data/Databases/content.db"
+AURORA_SETTINGS_DB = "/Game/Data/Databases/settings.db"
+CLEANUP_SCRIPT_DIR = "/Game/User/Scripts/Utility/NetISO Cleanup"
+# Tables of Aurora's settings database that point at a content entry by its Id.
+CONTENT_REFERENCES = ("UserRecentGames", "UserFavorites", "UserHidden", "TitleSettings")
 # DashLaunch device names and the drive names of Aurora's FTP server.
 DEVICES = (("Hdd:", "/Hdd1"), ("Usb:", "/Usb0"))
 
@@ -240,6 +250,7 @@ def sync(settings, tiles, stub, log):
         for number, tile in enumerate(to_send, 1):
             send_tile(ftp, remote_root, tile.name, netiso_iso.tile_files(stub, tile, message))
             log("  %d/%d  %s" % (number, len(to_send), tile.name))
+        prepare_cleanup(ftp, remote_root, log)
         sent = {tile.name for tile in to_send}
         return {tile.name: "netiso" if tile.name in sent else "console" for tile in tiles}
     except (OSError, ftplib.Error) as error:
@@ -249,6 +260,114 @@ def sync(settings, tiles, stub, log):
             ftp.quit()
         except (OSError, ftplib.Error):
             pass
+
+
+# ---- entries Aurora keeps for tiles that are gone
+
+def ghost_entries(content_db, settings_db, remote_root, existing):
+    """Finds the entries of Aurora's game list left behind by removed tiles.
+
+    Aurora never forgets a game whose folder disappeared, so a removed or
+    renamed tile stays in its list as a dead duplicate. Only entries found by
+    the scan path of our tiles folder are considered: the user's own games
+    are never touched. Returns [(Id, Directory)].
+    """
+    path = "\\" + "\\".join(remote_root.strip("/").split("/")[1:])
+    existing = {name.lower() for name in existing}
+    settings = sqlite3.connect(settings_db)
+    try:
+        scan_ids = [row[0] for row in settings.execute(
+            "SELECT Id FROM ScanPaths WHERE Path = ? COLLATE NOCASE", (path,))]
+    finally:
+        settings.close()
+    if not scan_ids:
+        return []
+    content = sqlite3.connect(content_db)
+    try:
+        rows = content.execute(
+            "SELECT Id, Directory FROM ContentItems WHERE ScanPathId IN (%s) ORDER BY Id"
+            % ",".join("?" * len(scan_ids)), scan_ids).fetchall()
+    finally:
+        content.close()
+    ghosts = []
+    for content_id, directory in rows:
+        relative = directory[len(path):].strip("\\") if directory.lower().startswith(path.lower()) else ""
+        tile = relative.split("\\")[0]
+        if tile and tile.lower() not in existing:
+            ghosts.append((content_id, directory))
+    return ghosts
+
+
+def _ascii(text):
+    """Aurora scripts are plain ASCII: accents are dropped, other scripts fall back to '?'."""
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+
+
+def cleanup_script(ghost_ids, title, question, done):
+    """Lua utility script that removes the given entries from Aurora's list.
+
+    Aurora keeps its database locked while it runs, so the removal has to be
+    done by Aurora itself. The script only names the entries to delete.
+    """
+    ids = ",".join(str(i) for i in ghost_ids)
+    lines = [
+        'scriptTitle = "NetISO Cleanup"',
+        'scriptAuthor = "NetISO Manager"',
+        'scriptVersion = 1',
+        'scriptDescription = "%s"' % _ascii(title),
+        'scriptPermissions = { "sql" }',
+        '',
+        'function main()',
+        '\tlocal answer = Script.ShowMessageBox("NetISO Cleanup", "%s", "OK", "Cancel");'
+        % _ascii(question).replace('"', "'"),
+        '\tif answer.Button ~= 1 then',
+        '\t\treturn;',
+        '\tend',
+        '\tSql.Execute("DELETE FROM ContentItems WHERE Id IN (%s)");' % ids,
+    ]
+    lines += ['\tSql.Execute("DELETE FROM Config.%s WHERE ContentId IN (%s)");' % (table, ids)
+              for table in CONTENT_REFERENCES]
+    lines += [
+        '\tScript.RefreshListOnExit(true);',
+        '\tScript.ShowMessageBox("NetISO Cleanup", "%s", "OK");' % _ascii(done).replace('"', "'"),
+        'end',
+        '',
+    ]
+    return "\r\n".join(lines).encode("ascii")
+
+
+def prepare_cleanup(ftp, remote_root, log):
+    """Uploads a cleanup script when Aurora's list holds entries of removed tiles.
+
+    Returns the number of such entries.
+    """
+    content = read_file(ftp, AURORA_CONTENT_DB)
+    settings = read_file(ftp, AURORA_SETTINGS_DB)
+    if content is None or settings is None:
+        return 0
+    existing = [name for name, is_dir in list_dir(ftp, remote_root) if is_dir]
+    folder = tempfile.mkdtemp()
+    try:
+        paths = []
+        for name, data in (("content.db", content), ("settings.db", settings)):
+            paths.append(os.path.join(folder, name))
+            with open(paths[-1], "wb") as f:
+                f.write(data)
+        try:
+            ghosts = ghost_entries(paths[0], paths[1], remote_root, existing)
+        except sqlite3.Error:
+            return 0
+    finally:
+        for name in os.listdir(folder):
+            os.remove(os.path.join(folder, name))
+        os.rmdir(folder)
+    if ghosts:
+        script = cleanup_script([g[0] for g in ghosts], tr("cleanup_description"),
+                                tr("cleanup_question", count=len(ghosts)), tr("cleanup_done"))
+        _ensure_dir(ftp, CLEANUP_SCRIPT_DIR)
+        write_file(ftp, CLEANUP_SCRIPT_DIR + "/Main.lua", script)
+        log(tr("cleanup_ready", count=len(ghosts)))
+    return len(ghosts)
 
 
 # ---- plugin installation

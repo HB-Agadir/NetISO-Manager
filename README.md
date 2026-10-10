@@ -80,6 +80,7 @@ Le guide d'utilisation est dans `docs/` (francais et anglais).
 ```
 python app/tests/test_core.py
 python app/tests/test_app.py
+python app/tests/test_cleanup.py
 ```
 
 ## Soutenir le projet

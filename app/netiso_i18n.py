@@ -210,6 +210,21 @@ _TEXTS = {
     "ini_updated": ("{path} mis à jour (copie : launch.ini.netiso.bak)",
                     "{path} updated (backup: launch.ini.netiso.bak)",
                     "تم تحديث {path} (نسخة احتياطية: launch.ini.netiso.bak)"),
+    "cleanup_description": ("Retire de la liste d'Aurora les tuiles NetISO qui n'existent plus",
+                            "Removes NetISO tiles that no longer exist from Aurora's list",
+                            "Removes NetISO tiles that no longer exist from Aurora's list"),
+    "cleanup_question": ("Retirer {count} ancienne(s) entree(s) NetISO de la liste ? Vos jeux ne sont pas touches.",
+                         "Remove {count} old NetISO entries from the list? Your games are not touched.",
+                         "Remove {count} old NetISO entries from the list? Your games are not touched."),
+    "cleanup_done": ("Termine. La liste va se rafraichir.", "Done. The list will refresh.",
+                     "Done. The list will refresh."),
+    "cleanup_ready": (
+        "Aurora affiche encore {count} ancienne(s) tuile(s). Pour les retirer : dans Aurora, "
+        "ouvrez les scripts utilitaires et lancez « NetISO Cleanup ».",
+        "Aurora still shows {count} old tile(s). To remove them: in Aurora, open the utility "
+        "scripts and run \"NetISO Cleanup\".",
+        "ما زال Aurora يعرض {count} اختصارا قديما. لإزالتها: افتح سكربتات الأدوات في Aurora وشغل "
+        "«NetISO Cleanup»."),
     # ISO reading
     "no_partition": ("partition de jeu introuvable", "game partition not found",
                      "لم يتم العثور على قسم اللعبة"),
