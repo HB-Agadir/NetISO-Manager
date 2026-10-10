@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release Retail|Xbox 360">
+      <Configuration>Release Retail</Configuration>
+      <Platform>Xbox 360</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{3D5B8E41-6A27-4C19-9F0E-2B7C4D1A8E53}</ProjectGuid>
+    <Keyword>Xbox360Proj</Keyword>
+    <ProjectName>stub</ProjectName>
+  </PropertyGroup>
+  <PropertyGroup>
+    <XkelibDir>..\..\X360_mouse\X360Remap-v1.3\X360Remap\xkelib</XkelibDir>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release Retail|Xbox 360'">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>2010-01</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Retail|Xbox 360'">
+    <IncludePath>$(XkelibDir);$(IncludePath)</IncludePath>
+    <LinkIncremental>false</LinkIncremental>
+    <ImageXexOutput>$(OutDir)default.xex</ImageXexOutput>
+    <OutputFile>$(OutDir)stub$(TargetExt)</OutputFile>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Retail|Xbox 360'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(XkelibDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MinSpace</Optimization>
+      <PreprocessorDefinitions>NDEBUG;_XBOX</PreprocessorDefinitions>
+      <ExceptionHandling>false</ExceptionHandling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(XkelibDir)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>xkelib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <SetChecksum>true</SetChecksum>
+    </Link>
+    <ImageXex>
+      <ConfigurationFile>xex.xml</ConfigurationFile>
+    </ImageXex>
+    <Deploy>
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </Deploy>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="xex.xml" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

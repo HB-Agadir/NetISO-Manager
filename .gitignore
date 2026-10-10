@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.iso
+*.readback
+stub/Release Retail/
+stub/*.user
+deploy/
