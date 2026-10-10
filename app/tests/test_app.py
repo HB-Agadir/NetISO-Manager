@@ -61,6 +61,15 @@ class WatchHelperTests(unittest.TestCase):
         self.assertFalse(netiso_iso.is_being_written(path))
 
 
+class WindowsStartTests(unittest.TestCase):
+    def test_command_reopens_the_app_minimized(self):
+        import netiso_winstart
+        script = os.path.join("C:", os.sep, "apps", "NetISOManager.pyw")
+        command = netiso_winstart.command(script)
+        self.assertTrue(command.endswith('"%s" --minimized' % script))
+        self.assertIn("python", command.lower())
+
+
 class WindowTests(unittest.TestCase):
     """Drives the real window with settings kept in a temporary folder."""
 
@@ -131,6 +140,22 @@ class WindowTests(unittest.TestCase):
         self.app._watch()
         self.pump(lambda: offers)
         self.assertEqual(offers, [([], ["First Game"])])
+
+    def test_a_multi_disc_game_shows_one_row_and_switches_disc(self):
+        make_iso(os.path.join(self.isos, "Saga (USA) (Disc 1).iso"), 0, make_xex(0x33333333, 1, 1, 2))
+        make_iso(os.path.join(self.isos, "Saga (USA) (Disc 2).iso"), 0, make_xex(0x33333333, 2, 2, 2))
+        self.app.scanned = None
+        self.app._scan()
+        self.pump(lambda: self.app.scanned is not None)
+        rows = {r[0]: r for r in self.rows()}
+        self.assertEqual(sorted(rows), ["First Game", "Saga"])
+        self.assertEqual(rows["Saga"][3], "1 sur 2")
+        self.app.tree.selection_set("Saga")
+        self.app._next_disc()
+        rows = {r[0]: r for r in self.rows()}
+        self.assertEqual(rows["Saga"][3], "2 sur 2")
+        self.assertTrue(rows["Saga"][5].endswith("Saga (USA) (Disc 2).iso"))
+        self.assertEqual(self.manager.load_settings()["active_discs"], {"33333333": 2})
 
     def test_nothing_is_offered_when_detection_is_switched_off(self):
         offers = []

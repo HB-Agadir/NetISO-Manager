@@ -84,6 +84,18 @@ Valide sur console le 2026-10-10: tuile avec Title ID affichee avec sa pochette,
 
 A valider: le comportement des title updates (le stub porte le meme Title ID et Media ID que le jeu).
 
+## Evolutions du 2026-10-10 (soir)
+
+- Une tuile par jeu: les disques d'un meme jeu (meme Title ID, plusieurs disques annonces) sont regroupes. La tuile lance le disque choisi dans l'application (bouton "Changer de disque", memorise par Title ID dans `active_discs`). Les disques qui sont des jeux distincts (Title ID differents) gardent chacun leur tuile et leur mention de disque.
+- Noms: les mentions de region et de langues sont retirees; celles qui parlent de disque sont conservees.
+- `netiso.cfg`: ligne 1 = nom de la tuile, ligne 2 = message a afficher sur la console si le PC est injoignable (UTF-8, dans la langue de l'application).
+- Detection automatique des ISO ajoutes ou retires (sondage toutes les 15 s, attend la fin d'une copie), avec proposition de transfert.
+- Interface en francais, anglais, arabe (`app/netiso_i18n.py`).
+- Zone Serveur: jeu en cours et debit; demarrage avec Windows (cle Run de l'utilisateur, fenetre reduite).
+- Bouton "Installer le plugin sur la console": envoie `NetISO.xex` s'il manque, ecrit l'adresse du PC dans `NetISO.xex.txt`, ajoute le plugin a `launch.ini` apres sauvegarde (`launch.ini.netiso.bak`). Non essaye sur une console non configuree.
+- Lanceur 1.0 (`stub/main.cpp`): detecte l'absence de serveur (le plugin liste alors une seule entree `No Server!`) et met en file une notification avant de rendre la main. Compile, garde dans `deploy/stub_1.0_candidate.xex`, PAS ENCORE VALIDE sur console. `app/stub.xex` reste le build 7 valide; il ignore la ligne 2 de `netiso.cfg`.
+- Changement de disque en cours de partie et demontage au retour dans Aurora: non realises, pas de declencheur fiable depuis le PC.
+
 ## Questions ouvertes
 
 1. Title updates: s'appliquent-ils a un jeu lance par une tuile qui porte le meme Title ID et Media ID?

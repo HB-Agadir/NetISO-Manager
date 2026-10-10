@@ -1,8 +1,10 @@
-"""Talks to the console over Aurora's FTP server: finds installed games, syncs tiles."""
+"""Talks to the console over Aurora's FTP server: finds installed games, syncs tiles,
+installs the plugin configuration."""
 
 import ftplib
 import hashlib
 import io
+import re
 import struct
 
 import netiso_iso
@@ -13,10 +15,18 @@ GAME_CONTENT_TYPES = ("00007000", "00004000")  # Games on Demand, installed disc
 TILE_FILES = ("default.xex", "netiso.cfg", "netiso_stub.log")
 XEX_HEADER_READ = 0x8000
 SCAN_DEPTH = 2
+LAUNCH_INI_PATHS = ("/Hdd1/launch.ini", "/Usb0/launch.ini", "/Usb1/launch.ini")
+DEFAULT_PLUGIN_PATH = "Hdd:\\Apps\\NetISO.xex"
+# DashLaunch device names and the drive names of Aurora's FTP server.
+DEVICES = (("Hdd:", "/Hdd1"), ("Usb:", "/Usb0"))
 
 
 class ConsoleError(Exception):
     pass
+
+
+class PluginMissing(ConsoleError):
+    """The plugin file is not on the console and none was given to upload."""
 
 
 def connect(host, user, password, port=21):
@@ -66,6 +76,23 @@ def read_head(ftp, path, size):
     except ftplib.Error:
         pass  # the server reports the interrupted transfer; the bytes are already read
     return data
+
+
+def read_file(ftp, path):
+    """Returns the content of a remote file, or None when it does not exist."""
+    data = io.BytesIO()
+    try:
+        ftp.retrbinary("RETR " + path, data.write)
+    except ftplib.Error:
+        return None
+    return data.getvalue()
+
+
+def write_file(ftp, path, data):
+    """Uploads a file and reads it back to check it."""
+    ftp.storbinary("STOR " + path, io.BytesIO(data))
+    if hashlib.sha256(read_file(ftp, path) or b"").digest() != hashlib.sha256(data).digest():
+        raise ConsoleError(tr("verify_failed", path=path))
 
 
 def xex_game_key(header):
@@ -130,15 +157,17 @@ def is_installed(game, installed):
     return (game.title_id, game.disc) in installed or (game.title_id, None) in installed
 
 
-def plan_sync(games, installed, existing_tiles):
+def plan_sync(tiles, installed, existing_tiles):
     """Decides what to do with each tile.
 
-    Returns (to_send, to_remove): games whose tile must be on the console, and
-    names of tiles to delete because the game is installed on the console or
+    A tile is needed as long as one disc of the game is missing from the
+    console. Returns (to_send, to_remove): tiles that must be on the console,
+    and names of tiles to delete because the whole game is installed there or
     its ISO is gone from the PC.
     """
-    to_send = [game for game in games if not is_installed(game, installed)]
-    wanted = {game.name.lower() for game in to_send}
+    to_send = [tile for tile in tiles
+               if not all(is_installed(game, installed) for game in tile.games)]
+    wanted = {tile.name.lower() for tile in to_send}
     to_remove = [name for name in existing_tiles if name.lower() not in wanted]
     return to_send, to_remove
 
@@ -186,18 +215,13 @@ def send_tile(ftp, remote_root, name, files):
     _ensure_dir(ftp, remote_root)
     _ensure_dir(ftp, tile_dir)
     for filename, data in files.items():
-        path = "%s/%s" % (tile_dir, filename)
-        ftp.storbinary("STOR " + path, io.BytesIO(data))
-        readback = io.BytesIO()
-        ftp.retrbinary("RETR " + path, readback.write)
-        if hashlib.sha256(readback.getvalue()).digest() != hashlib.sha256(data).digest():
-            raise ConsoleError(tr("verify_failed", path=path))
+        write_file(ftp, "%s/%s" % (tile_dir, filename), data)
 
 
-def sync(settings, games, stub, log):
+def sync(settings, tiles, stub, log):
     """Brings the console's tiles in line with the PC's ISOs.
 
-    Returns {game name: state} where state is "console" (installed there, no
+    Returns {tile name: state} where state is "console" (installed there, no
     tile) or "netiso" (tile sent).
     """
     remote_root = "/" + settings["remote_root"].strip("/")
@@ -208,15 +232,100 @@ def sync(settings, games, stub, log):
         log(tr("looking_installed"))
         installed = installed_games(ftp, settings["console_game_folders"], drives, remote_root)
         log(tr("installed_count", count=len(installed)))
-        to_send, to_remove = plan_sync(games, installed, existing_tiles(ftp, remote_root))
+        to_send, to_remove = plan_sync(tiles, installed, existing_tiles(ftp, remote_root))
         for name in to_remove:
             remove_tile(ftp, remote_root, name)
             log(tr("tile_removed", name=name))
-        for number, game in enumerate(to_send, 1):
-            send_tile(ftp, remote_root, game.name, netiso_iso.tile_files(stub, game))
-            log("  %d/%d  %s" % (number, len(to_send), game.name))
-        sent = {game.name for game in to_send}
-        return {game.name: "netiso" if game.name in sent else "console" for game in games}
+        message = tr("console_no_server")
+        for number, tile in enumerate(to_send, 1):
+            send_tile(ftp, remote_root, tile.name, netiso_iso.tile_files(stub, tile, message))
+            log("  %d/%d  %s" % (number, len(to_send), tile.name))
+        sent = {tile.name for tile in to_send}
+        return {tile.name: "netiso" if tile.name in sent else "console" for tile in tiles}
+    except (OSError, ftplib.Error) as error:
+        raise ConsoleError(tr("ftp_error", error=error))
+    finally:
+        try:
+            ftp.quit()
+        except (OSError, ftplib.Error):
+            pass
+
+
+# ---- plugin installation
+
+def ini_to_ftp_path(ini_path):
+    """Turns a DashLaunch path (Hdd:\\Apps\\x.xex) into an FTP path (/Hdd1/Apps/x.xex)."""
+    for device, drive in DEVICES:
+        if ini_path.lower().startswith(device.lower()):
+            return drive + ini_path[len(device):].replace("\\", "/")
+    raise ConsoleError(tr("unknown_device", path=ini_path))
+
+
+def plan_launch_ini(text, plugin_path=DEFAULT_PLUGIN_PATH):
+    """Finds where launch.ini loads NetISO.xex, or adds it to a free plugin slot.
+
+    Returns (plugin path as written in the file, new text or None when the
+    file already loads the plugin).
+    """
+    in_plugins = False
+    free = None
+    lines = text.splitlines(keepends=True)
+    for number, line in enumerate(lines):
+        section = re.match(r"\s*\[(.+?)\]", line)
+        if section:
+            in_plugins = section.group(1).strip().lower() == "plugins"
+            continue
+        slot = re.match(r"(\s*plugin\d\s*=)[ \t]*([^\r\n]*?)[ \t]*(\r?\n?)$", line, re.I)
+        if not in_plugins or not slot:
+            continue
+        value = slot.group(2)
+        if value.replace("/", "\\").lower().endswith("\\netiso.xex"):
+            return value, None
+        if not value and free is None:
+            free = (number, slot)
+    if free is None:
+        raise ConsoleError(tr("no_plugin_slot"))
+    number, slot = free
+    lines[number] = "%s %s%s" % (slot.group(1), plugin_path, slot.group(3) or "\r\n")
+    return plugin_path, "".join(lines)
+
+
+def setup_console(settings, pc_ip, plugin_file, log):
+    """Makes the console load NetISO.xex and point it at this PC.
+
+    Uploads the plugin when it is missing (plugin_file is the local copy),
+    writes the PC address next to it, and registers the plugin in launch.ini
+    after saving a backup. Returns True when launch.ini was changed.
+    """
+    ftp = connect(settings["console_ip"], settings["ftp_user"], settings["ftp_password"])
+    try:
+        ini_path, ini = None, None
+        for candidate in LAUNCH_INI_PATHS:
+            ini = read_file(ftp, candidate)
+            if ini is not None:
+                ini_path = candidate
+                break
+        if ini is None:
+            raise ConsoleError(tr("no_launch_ini"))
+        plugin_ini_path, new_text = plan_launch_ini(ini.decode("latin-1"))
+        plugin_path = ini_to_ftp_path(plugin_ini_path)
+        folder, filename = plugin_path.rsplit("/", 1)
+        present = {n.lower() for n, d in list_dir(ftp, folder) if not d}
+        if filename.lower() not in present:
+            if not plugin_file:
+                raise PluginMissing(tr("plugin_missing", path=plugin_ini_path))
+            with open(plugin_file, "rb") as f:
+                data = f.read()
+            _ensure_dir(ftp, folder)
+            write_file(ftp, plugin_path, data)
+            log(tr("plugin_uploaded", path=plugin_ini_path))
+        write_file(ftp, plugin_path + ".txt", pc_ip.encode("ascii"))
+        log(tr("address_written", path=plugin_ini_path + ".txt", ip=pc_ip))
+        if new_text is not None:
+            write_file(ftp, ini_path + ".netiso.bak", ini)
+            write_file(ftp, ini_path, new_text.encode("latin-1"))
+            log(tr("ini_updated", path=ini_path))
+        return new_text is not None
     except (OSError, ftplib.Error) as error:
         raise ConsoleError(tr("ftp_error", error=error))
     finally:

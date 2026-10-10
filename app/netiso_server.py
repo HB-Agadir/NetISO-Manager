@@ -2,7 +2,7 @@
 
 Speaks the protocol of the original server (20-byte big-endian request header
 with the magic "ISVR"), but serves a list of games that can live in any number
-of folders.
+of folders, with one entry per game whatever its number of discs.
 """
 
 import socket
@@ -37,23 +37,30 @@ def _recv_exact(conn, size):
 
 
 class NetIsoServer:
-    """Listens for consoles and serves the current list of games."""
+    """Listens for consoles and serves the current list of tiles."""
 
     def __init__(self, on_event=None, port=PORT):
         self.port = port
         self._on_event = on_event or (lambda kind, text: None)
-        self._games = []
+        self._tiles = []
         self._lock = threading.Lock()
         self._listener = None
         self._clients = set()
+        self._playing = None  # (tile name, disc number) being served
+        self._bytes = 0
 
     @property
     def running(self):
         return self._listener is not None
 
-    def set_games(self, games):
+    def set_tiles(self, tiles):
         with self._lock:
-            self._games = list(games)
+            self._tiles = list(tiles)
+
+    def status(self):
+        """Returns ((tile name, disc) or None, total bytes sent to consoles)."""
+        with self._lock:
+            return self._playing, self._bytes
 
     def start(self):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -93,15 +100,18 @@ class NetIsoServer:
             threading.Thread(target=self._serve, args=(conn, address[0]), daemon=True).start()
 
     def _find(self, name):
+        """Returns the disc to serve for a requested name, or None."""
         wanted = name.lower()
         with self._lock:
-            for game in self._games:
-                if game.name.lower() == wanted:
-                    return game
+            for tile in self._tiles:
+                if tile.name.lower() == wanted:
+                    return tile.name, tile.game()
             # Tiles made for the original server name the ISO file itself.
-            for game in self._games:
-                if game.path.lower().endswith("\\" + wanted) or game.path.lower().endswith("/" + wanted):
-                    return game
+            for tile in self._tiles:
+                for game in tile.games:
+                    tail = game.path.lower().replace("/", "\\")
+                    if tail.endswith("\\" + wanted):
+                        return tile.name, game
         return None
 
     def _serve(self, conn, address):
@@ -126,10 +136,13 @@ class NetIsoServer:
                     if mounted is None:
                         raise ConnectionError("read without a mounted ISO")
                     mounted.seek(offset)
-                    conn.sendall(mounted.read(length).ljust(length, b"\0"))
+                    data = mounted.read(length).ljust(length, b"\0")
+                    with self._lock:
+                        self._bytes += length
+                    conn.sendall(data)
                 elif cmd == CMD_GET_NAME:
                     with self._lock:
-                        name = self._games[index].name if index < len(self._games) else ""
+                        name = self._tiles[index].name if index < len(self._tiles) else ""
                     conn.sendall(name.encode("ascii", "replace")[:length].ljust(length, b"\0"))
                 elif cmd == CMD_MOUNT:
                     raw = _recv_exact(conn, length).decode("ascii", "replace")
@@ -137,22 +150,26 @@ class NetIsoServer:
                     if mounted is not None:
                         mounted.close()
                         mounted = None
-                    game = None if name == DISABLE_NAME else self._find(name)
-                    if game is not None:
+                    found = None if name == DISABLE_NAME else self._find(name)
+                    if found is not None:
                         try:
-                            mounted = open(game.path, "rb", buffering=0)
+                            mounted = open(found[1].path, "rb", buffering=0)
                         except OSError as error:
-                            self._on_event("mount", tr("open_failed", path=game.path, error=error))
+                            self._on_event("mount", tr("open_failed", path=found[1].path,
+                                                       error=error))
+                    with self._lock:
+                        self._playing = (found[0], found[1].disc) if mounted is not None else None
                     if mounted is not None:
-                        self._on_event("mount", tr("game_mounted", name=game.name))
+                        self._on_event("mount", tr("game_mounted", name=found[0],
+                                                   disc=found[1].disc))
                     elif name == DISABLE_NAME:
                         self._on_event("mount", tr("no_game_mounted"))
-                    elif game is None:
+                    elif found is None:
                         self._on_event("mount", tr("unknown_game", name=name))
                     conn.sendall(struct.pack(">I", 1 if mounted is not None else 0))
                 else:
                     raise ConnectionError("unknown command %d" % cmd)
-        except (ConnectionError, OSError, struct.error) as error:
+        except (ConnectionError, OSError, struct.error):
             if self.running:
                 self._on_event("client", tr("client_disconnected", address=address))
         finally:
@@ -160,6 +177,7 @@ class NetIsoServer:
                 mounted.close()
             with self._lock:
                 self._clients.discard(conn)
+                self._playing = None
             try:
                 conn.close()
             except OSError:

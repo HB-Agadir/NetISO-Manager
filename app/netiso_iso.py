@@ -23,16 +23,50 @@ class IsoError(Exception):
 
 
 class Game:
-    """One ISO on the PC and the identifiers of the game it contains."""
+    """One ISO on the PC and the identifiers of the disc it contains."""
 
     def __init__(self, path, name, title_id, media_id, disc, discs):
         self.path = path
-        self.name = name  # tile folder name, also the name the server lists
+        self.name = name  # readable game title, without region, language or disc tags
         self.title_id = title_id
         self.media_id = media_id
         self.disc = disc
         self.discs = discs
         self.size = os.path.getsize(path)
+
+
+class Tile:
+    """One entry in Aurora: a game, with every disc of it found on the PC."""
+
+    def __init__(self, name, games):
+        self.name = name  # tile folder name, also the name the server lists
+        self.games = sorted(games, key=lambda game: game.disc)
+        self.active = self.games[0].disc  # disc served when the tile is launched
+
+    @property
+    def title_id(self):
+        return self.games[0].title_id
+
+    @property
+    def media_id(self):
+        return self.games[0].media_id
+
+    @property
+    def multi_disc(self):
+        return len(self.games) > 1
+
+    def game(self):
+        """The disc currently selected for this tile."""
+        for game in self.games:
+            if game.disc == self.active:
+                return game
+        return self.games[0]
+
+    def next_disc(self):
+        """Selects the following disc, wrapping around; returns its number."""
+        numbers = [game.disc for game in self.games]
+        self.active = numbers[(numbers.index(self.game().disc) + 1) % len(numbers)]
+        return self.active
 
 
 def find_partition(f):
@@ -122,10 +156,25 @@ def stamp_stub(stub, game):
     return bytes(data)
 
 
-def tile_name(iso_path, taken):
-    """Folder name for the tile: FATX-safe, at most 42 characters, unique."""
+DISC_TAG = re.compile(r"\s*[(\[][^)\]]*dis[ck][^)\]]*[)\]]", re.I)
+
+
+def clean_title(iso_path):
+    """Game title from an ISO file name, without the (region) and (languages) tags.
+
+    Tags that mention a disc, such as (Disc 2) or (Add-On Content Disc), are
+    kept: they tell apart discs that are separate entries in Aurora.
+    """
     stem = os.path.splitext(os.path.basename(iso_path))[0]
-    name = re.sub(r"[^A-Za-z0-9 !#$%&'()\-.@\[\]^_`{}~]", "_", stem).strip(" .")
+    kept = lambda match: match.group(0) if DISC_TAG.fullmatch(match.group(0)) else " "
+    title = re.sub(r"\s*(\([^)]*\)|\[[^\]]*\])", kept, stem)
+    title = re.sub(r"\s+", " ", title).strip(" -_.")
+    return title or stem
+
+
+def tile_name(title, taken):
+    """Folder name for a tile: FATX-safe, at most 42 characters, unique."""
+    name = re.sub(r"[^A-Za-z0-9 !#$%&'()\-.@\[\]^_`{}~]", "_", title).strip(" .")
     name = name[:FATX_NAME_MAX].rstrip(" .") or "game"
     base, n = name, 2
     while name.lower() in taken:
@@ -134,6 +183,33 @@ def tile_name(iso_path, taken):
         n += 1
     taken.add(name.lower())
     return name
+
+
+def build_tiles(games):
+    """Groups the discs of a multi-disc game under a single tile.
+
+    A second copy of a disc already seen (another region, a duplicate file)
+    gets a tile of its own.
+    """
+    groups, order = {}, []
+    for game in games:
+        key = (game.title_id,) if game.discs > 1 else (game.title_id, id(game))
+        if key in groups and any(other.disc == game.disc for other in groups[key]):
+            key = (game.title_id, id(game))
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(game)
+    taken = set()
+    tiles = [Tile(None, groups[key]) for key in order]
+    tiles.sort(key=lambda tile: tile.games[0].name.lower())
+    for tile in tiles:
+        title = tile.games[0].name
+        if tile.multi_disc:
+            # One tile stands for every disc: its name must not single one out.
+            title = DISC_TAG.sub("", title).strip() or title
+        tile.name = tile_name(title, taken)
+    return tiles
 
 
 def find_isos(folders, recursive):
@@ -174,21 +250,23 @@ def is_being_written(path):
 
 
 def scan(folders, recursive):
-    """Returns (games, errors) for every ISO in the folders; errors are (path, message)."""
-    games, errors, taken = [], [], set()
+    """Returns (tiles, errors) for every ISO in the folders; errors are (path, message)."""
+    games, errors = [], []
     for path in find_isos(folders, recursive):
         try:
             title_id, media_id, disc, discs = read_iso_ids(path)
         except (IsoError, OSError, struct.error) as error:
             errors.append((path, str(error)))
             continue
-        games.append(Game(path, tile_name(path, taken), title_id, media_id, disc, discs))
-    return games, errors
+        games.append(Game(path, clean_title(path), title_id, media_id, disc, discs))
+    return build_tiles(games), errors
 
 
-def tile_files(stub, game):
-    """Returns the files of a game's tile as {filename: bytes}."""
-    return {
-        "default.xex": stamp_stub(stub, game),
-        "netiso.cfg": (game.name + "\r\n").encode("ascii"),
-    }
+def tile_files(stub, tile, message=""):
+    """Returns the files of a tile as {filename: bytes}.
+
+    netiso.cfg holds the tile name on its first line and, on the second, the
+    text the launcher shows on the console when the PC cannot be reached.
+    """
+    config = tile.name.encode("ascii") + b"\r\n" + message.encode("utf-8") + b"\r\n"
+    return {"default.xex": stamp_stub(stub, tile), "netiso.cfg": config}

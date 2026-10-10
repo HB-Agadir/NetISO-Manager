@@ -1,12 +1,20 @@
-// Phase 0 probe: asks the NetISO plugin to mount one ISO, then boots the disc.
-// The ISO name is the first line of game:\netiso.cfg. Every step is written
-// to game:\netiso_stub.log so the result can be read back over FTP.
+// NetISO launcher: one copy of this program sits behind every game tile.
+// It asks the NetISO.xex plugin to mount the game's ISO from the PC, waits for
+// the disc to become readable, then boots it.
+//
+// game:\netiso.cfg holds the game name on line 1 and, on line 2, the message
+// to show when the PC cannot be reached (UTF-8). Every step is written to
+// game:\netiso_stub.log.
 
 #include <xtl.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include "xkelib.h"
+
+static const DWORD kDiscTimeoutMs = 30000;
+static const char kNoServerEntry[] = "No Server!";
+static const WCHAR kDefaultMessage[] = L"NetISO: PC not reachable. Open NetISO Manager.";
 
 static DWORD g_start = 0;
 
@@ -39,46 +47,58 @@ static HRESULT Mount(const char *link, const char *device)
 	return ObCreateSymbolicLink(&linkName, &deviceName);
 }
 
-// Line 1 is the ISO name. Optional line 2 is the delay in milliseconds
-// between the mount request and the launch of the disc.
-static bool ReadConfig(char *name, size_t size, DWORD *delayMs)
+static void TrimLine(char *line)
 {
-	char line[32];
+	size_t len = strlen(line);
+	while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n' || line[len - 1] == ' '))
+		line[--len] = '\0';
+}
+
+static bool ReadConfig(char *name, size_t nameSize, WCHAR *message, int messageChars)
+{
+	char line[512];
 	FILE *cfg = fopen("game:\\netiso.cfg", "rb");
 	if (cfg == NULL)
 		return false;
-	bool ok = fgets(name, (int)size, cfg) != NULL;
-	*delayMs = 0;
+	bool ok = fgets(name, (int)nameSize, cfg) != NULL;
 	if (ok && fgets(line, sizeof(line), cfg) != NULL)
-		*delayMs = strtoul(line, NULL, 10);
+	{
+		TrimLine(line);
+		if (line[0] != '\0')
+			MultiByteToWideChar(CP_UTF8, 0, line, -1, message, messageChars);
+	}
 	fclose(cfg);
 	if (!ok)
 		return false;
-	size_t len = strlen(name);
-	while (len > 0 && (name[len - 1] == '\r' || name[len - 1] == '\n' || name[len - 1] == ' '))
-		name[--len] = '\0';
-	return len > 0;
+	TrimLine(name);
+	return name[0] != '\0';
 }
 
-// Lists a directory of the NetISO device. Enumerating "<iso>\Mount" is what
-// makes the plugin send the mount command to the server.
-static int ListDir(const char *pattern)
+// The plugin lists a single "No Server!" entry while it has no connection to the PC.
+static bool ServerReachable()
 {
 	WIN32_FIND_DATA data;
-	int count = 0;
-	HANDLE find = FindFirstFile(pattern, &data);
+	HANDLE find = FindFirstFile("nisoiso:\\*", &data);
 	if (find == INVALID_HANDLE_VALUE)
 	{
-		Log("  list '%s' -> no entry, error %u", pattern, GetLastError());
-		return 0;
+		Log("plugin list failed, error %u", GetLastError());
+		return false;
 	}
-	do
-	{
-		Log("  list '%s' -> '%s'", pattern, data.cFileName);
-		count++;
-	} while (count < 500 && FindNextFile(find, &data));
 	FindClose(find);
-	return count;
+	Log("plugin first entry: '%s'", data.cFileName);
+	return strcmp(data.cFileName, kNoServerEntry) != 0;
+}
+
+// Enumerating "<game>\Mount" is what makes the plugin send the mount command.
+static void RequestMount(const char *name)
+{
+	char path[400];
+	WIN32_FIND_DATA data;
+	_snprintf(path, sizeof(path), "nisoiso:\\%s\\Mount\\*", name);
+	path[sizeof(path) - 1] = '\0';
+	HANDLE find = FindFirstFile(path, &data);
+	if (find != INVALID_HANDLE_VALUE)
+		FindClose(find);
 }
 
 // NetISO.xex 1.0 calls into xam right after sending a mount. That request
@@ -116,76 +136,71 @@ static bool WritePluginOpcode(DWORD expected, DWORD replacement)
 	}
 }
 
-// Polls for the mounted disc and logs a heartbeat and every state change.
 static bool WaitForDisc(DWORD timeoutMs)
 {
 	DWORD start = GetTickCount();
-	DWORD lastAlive = 0;
-	DWORD lastError = 0xFFFFFFFF;
 	while (GetTickCount() - start < timeoutMs)
 	{
-		DWORD elapsed = GetTickCount() - start;
-		if (elapsed - lastAlive >= 500)
-		{
-			lastAlive = elapsed;
-			Log("alive");
-		}
 		if (GetFileAttributes("nisodvd:\\default.xex") != INVALID_FILE_ATTRIBUTES)
 			return true;
-		DWORD error = GetLastError();
-		if (error != lastError)
-		{
-			lastError = error;
-			Log("nisodvd:\\default.xex not visible, error %u", error);
-		}
 		Sleep(100);
 	}
 	return false;
 }
 
+// Queues a toast for the dashboard to show, then hands control back to it.
+static void FailToDashboard(const WCHAR *message)
+{
+	XNotifyQueueUI(XNOTIFYUI_TYPE_GENERIC, 0, 2, (PWCHAR)message, NULL);
+	Log("returning to dashboard");
+	XLaunchNewImage(XLAUNCH_KEYWORD_DEFAULT_APP, 0);
+}
+
 void __cdecl main()
 {
-	char iso[256];
-	char path[400];
-	DWORD delayMs = 0;
+	char name[256];
+	WCHAR message[256];
 
 	g_start = GetTickCount();
 	DeleteFile("game:\\netiso_stub.log");
-	Log("netiso stub phase 0, build 7");
-	Log("link nisoiso: -> 0x%08X", Mount("nisoiso:", "\\Device\\NetIso"));
-	Log("link nisodvd: -> 0x%08X", Mount("nisodvd:", "\\Device\\Cdrom0"));
+	Log("netiso launcher 1.0");
+	wcscpy(message, kDefaultMessage);
 
-	if (!ReadConfig(iso, sizeof(iso), &delayMs))
+	if (!ReadConfig(name, sizeof(name), message, 256))
 	{
-		Log("netiso.cfg missing or empty, listing server only");
-		ListDir("nisoiso:\\*");
+		Log("netiso.cfg missing or empty");
+		FailToDashboard(message);
+		return;
 	}
-	else
+	Log("game: '%s'", name);
+
+	HRESULT plugin = Mount("nisoiso:", "\\Device\\NetIso");
+	Mount("nisodvd:", "\\Device\\Cdrom0");
+	if (FAILED(plugin))
 	{
-		Log("iso: '%s'", iso);
-
-		_snprintf(path, sizeof(path), "nisoiso:\\%s\\Mount\\*", iso);
-		path[sizeof(path) - 1] = '\0';
-		bool patched = WritePluginOpcode(kExitCallOpcode, kNopOpcode);
-		Log("plugin exit call disabled: %d", patched);
-		Log("sending mount request");
-		ListDir(path);
-		Log("mount request returned");
-		if (patched)
-			Log("plugin exit call restored: %d", WritePluginOpcode(kNopOpcode, kExitCallOpcode));
-
-		if (WaitForDisc(30000))
-		{
-			Log("disc ready, launching nisodvd:\\default.xex");
-			XLaunchNewImage("nisodvd:\\default.xex", 0);
-			Log("XLaunchNewImage returned, error %u", GetLastError());
-		}
-		else
-		{
-			Log("disc not ready after 30 s");
-		}
+		Log("NetISO plugin not loaded, link error 0x%08X", plugin);
+		FailToDashboard(message);
+		return;
+	}
+	if (!ServerReachable())
+	{
+		Log("PC server not reachable");
+		FailToDashboard(message);
+		return;
 	}
 
-	Log("returning to dashboard");
-	XLaunchNewImage(XLAUNCH_KEYWORD_DEFAULT_APP, 0);
+	bool patched = WritePluginOpcode(kExitCallOpcode, kNopOpcode);
+	Log("mount request, plugin exit call disabled: %d", patched);
+	RequestMount(name);
+	if (patched)
+		WritePluginOpcode(kNopOpcode, kExitCallOpcode);
+
+	if (!WaitForDisc(kDiscTimeoutMs))
+	{
+		Log("disc not ready after %u ms", kDiscTimeoutMs);
+		FailToDashboard(message);
+		return;
+	}
+	Log("disc ready, launching");
+	XLaunchNewImage("nisodvd:\\default.xex", 0);
 }

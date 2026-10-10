@@ -14,13 +14,16 @@ import netiso_console
 import netiso_i18n
 import netiso_iso
 import netiso_server
+import netiso_winstart
 from netiso_i18n import tr
 
 # When frozen into an executable, bundled files live in the unpacking folder.
 APP_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+SCRIPT_PATH = os.path.abspath(__file__)
 STUB_PATH = os.path.join(APP_DIR, "stub.xex")
 SETTINGS_PATH = os.path.join(os.environ.get("APPDATA", APP_DIR), "NetISOManager", "settings.json")
 WATCH_INTERVAL_MS = 15000
+STATUS_INTERVAL_MS = 1000
 PROMPT_NAMES_MAX = 8
 DEFAULTS = {
     "language": "fr",
@@ -33,6 +36,7 @@ DEFAULTS = {
     "remote_root": "/Hdd1/NetISO",
     "console_game_folders": ["/Hdd1/Games"],
     "autostart_server": True,
+    "active_discs": {},  # Title ID (hex) -> disc number launched by the game's tile
 }
 
 
@@ -53,26 +57,26 @@ def save_settings(settings):
 
 
 def local_ip(toward):
-    """Address of this PC on the network that reaches the console."""
+    """Address of this PC on the network that reaches the console, or None."""
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         probe.connect((toward or "192.168.1.1", 9))
         return probe.getsockname()[0]
     except OSError:
-        return tr("pc_ip_unknown")
+        return None
     finally:
         probe.close()
 
 
 class App(tk.Tk):
-    def __init__(self):
+    def __init__(self, minimized=False):
         super().__init__()
         self.title("NetISO Manager")
-        self.geometry("1000x720")
-        self.minsize(860, 600)
+        self.geometry("1040x760")
+        self.minsize(900, 640)
         self.settings = load_settings()
         netiso_i18n.set_language(self.settings["language"])
-        self.games = []
+        self.tiles = []
         self.states = {}
         self.events = queue.Queue()
         self.server = netiso_server.NetIsoServer(lambda kind, text: self.events.put(("log", text)))
@@ -80,15 +84,19 @@ class App(tk.Tk):
         self.scanned = None      # {path: size} at the last full scan
         self.last_seen = None    # {path: size} at the previous watch poll
         self.prompt_next_scan = False
+        self.last_bytes = 0
 
         self._build()
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.after(100, self._drain_events)
         self.after(WATCH_INTERVAL_MS, self._watch)
+        self.after(STATUS_INTERVAL_MS, self._show_playing)
         if self.settings["folders"]:
             self._scan()
         if self.settings["autostart_server"]:
             self._autostart_server()
+        if minimized:
+            self.iconify()
 
     # ---- layout
 
@@ -129,12 +137,16 @@ class App(tk.Tk):
 
         games = ttk.LabelFrame(body, text=tr("games_frame"))
         games.pack(fill="both", expand=True, **pad)
-        columns = ("name", "state", "title", "disc", "size", "folder")
-        self.tree = ttk.Treeview(games, columns=columns, show="headings", height=8)
+        bar = ttk.Frame(games)
+        bar.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
+        ttk.Button(bar, text=tr("next_disc"), command=self._next_disc).pack(side="left")
+        columns = ("name", "state", "title", "disc", "size", "file")
+        self.tree = ttk.Treeview(games, columns=columns, show="headings", height=8,
+                                 selectmode="browse")
         for column, key, width, anchor in (
-                ("name", "col_game", 260, "w"), ("state", "col_state", 170, "w"),
-                ("title", "col_title", 80, "center"), ("disc", "col_disc", 60, "center"),
-                ("size", "col_size", 80, "e"), ("folder", "col_folder", 260, "w")):
+                ("name", "col_game", 250, "w"), ("state", "col_state", 160, "w"),
+                ("title", "col_title", 80, "center"), ("disc", "col_disc", 80, "center"),
+                ("size", "col_size", 80, "e"), ("file", "col_folder", 300, "w")):
             self.tree.heading(column, text=tr(key))
             self.tree.column(column, width=width, anchor=anchor)
         scroll = ttk.Scrollbar(games, orient="vertical", command=self.tree.yview)
@@ -162,30 +174,39 @@ class App(tk.Tk):
                 row=line, column=1, sticky="we", padx=8, pady=3)
         console.columnconfigure(1, weight=1)
         self.push_button = ttk.Button(console, text=tr("sync_button"), command=self._push)
-        self.push_button.grid(row=5, column=0, columnspan=2, sticky="we", padx=8, pady=8)
+        self.push_button.grid(row=5, column=0, columnspan=2, sticky="we", padx=8, pady=(8, 2))
+        self.setup_button = ttk.Button(console, text=tr("setup_button"), command=self._setup)
+        self.setup_button.grid(row=6, column=0, columnspan=2, sticky="we", padx=8, pady=(2, 8))
         if self.busy:
             self.push_button.configure(state="disabled")
+            self.setup_button.configure(state="disabled")
 
         server = ttk.LabelFrame(row, text=tr("server_frame"))
         server.pack(side="left", fill="both", expand=True, padx=(6, 0))
         self.server_state = tk.StringVar()
+        self.playing = tk.StringVar(value=tr("nothing_playing"))
         self.pc_ip = tk.StringVar()
-        ttk.Label(server, text=tr("server_state")).grid(row=0, column=0, sticky="w", padx=8, pady=3)
-        ttk.Label(server, textvariable=self.server_state).grid(row=0, column=1, sticky="w", padx=8)
-        ttk.Label(server, text=tr("pc_ip")).grid(row=1, column=0, sticky="w", padx=8, pady=3)
-        ttk.Label(server, textvariable=self.pc_ip).grid(row=1, column=1, sticky="w", padx=8)
+        for line, (key, variable) in enumerate((
+                ("server_state", self.server_state), ("now_playing", self.playing),
+                ("pc_ip", self.pc_ip))):
+            ttk.Label(server, text=tr(key)).grid(row=line, column=0, sticky="w", padx=8, pady=3)
+            ttk.Label(server, textvariable=variable).grid(row=line, column=1, sticky="w", padx=8)
         ttk.Label(server, text=tr("pc_ip_hint"), foreground="#666666").grid(
-            row=2, column=0, columnspan=2, sticky="w", padx=8)
+            row=3, column=0, columnspan=2, sticky="w", padx=8)
         self.autostart = tk.BooleanVar(value=self.settings["autostart_server"])
         ttk.Checkbutton(server, text=tr("autostart"), variable=self.autostart).grid(
-            row=3, column=0, columnspan=2, sticky="w", padx=8, pady=3)
+            row=4, column=0, columnspan=2, sticky="w", padx=8, pady=(3, 0))
+        self.with_windows = tk.BooleanVar(value=netiso_winstart.is_enabled())
+        ttk.Checkbutton(server, text=tr("start_with_windows"), variable=self.with_windows,
+                        command=self._toggle_windows_start).grid(
+            row=5, column=0, columnspan=2, sticky="w", padx=8)
         self.server_button = ttk.Button(server, command=self._toggle_server)
-        self.server_button.grid(row=4, column=0, columnspan=2, sticky="we", padx=8, pady=8)
+        self.server_button.grid(row=6, column=0, columnspan=2, sticky="we", padx=8, pady=8)
         server.columnconfigure(1, weight=1)
 
         log = ttk.LabelFrame(body, text=tr("log_frame"))
         log.pack(fill="both", **pad)
-        self.log = tk.Text(log, height=7, state="disabled", wrap="word")
+        self.log = tk.Text(log, height=6, state="disabled", wrap="word")
         self.log.pack(fill="both", expand=True, padx=8, pady=8)
         self._refresh_pc_ip()
         self._show_server_state()
@@ -223,23 +244,31 @@ class App(tk.Tk):
                 if kind == "log":
                     self._log(payload)
                 elif kind == "scanned":
-                    self._show_games(*payload)
+                    self._show_tiles(*payload)
                 elif kind == "watched":
                     self._compare_snapshot(payload)
                 elif kind == "pushed":
-                    self.busy = False
-                    self.push_button.configure(state="normal")
+                    self._set_busy(False)
                     message, states = payload
                     if states is not None:
                         self.states = states
                         self._fill_tree()
                     self._log(message)
+                elif kind == "setup":
+                    self._set_busy(False)
+                    self._setup_finished(payload)
         except queue.Empty:
             pass
         self.after(100, self._drain_events)
 
+    def _set_busy(self, busy):
+        self.busy = busy
+        state = "disabled" if busy else "normal"
+        self.push_button.configure(state=state)
+        self.setup_button.configure(state=state)
+
     def _refresh_pc_ip(self):
-        self.pc_ip.set(local_ip(self.console_ip.get().strip()))
+        self.pc_ip.set(local_ip(self.console_ip.get().strip()) or tr("pc_ip_unknown"))
 
     def _collect_settings(self):
         self.settings.update({
@@ -286,28 +315,52 @@ class App(tk.Tk):
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _show_games(self, games, errors, snapshot):
-        before = {game.name for game in self.games}
-        self.games = games
+    def _show_tiles(self, tiles, errors, snapshot):
+        before = {tile.name for tile in self.tiles}
+        for tile in tiles:
+            chosen = self.settings["active_discs"].get("%08X" % tile.title_id)
+            if chosen in [game.disc for game in tile.games]:
+                tile.active = chosen
+        self.tiles = tiles
         self.scanned = snapshot
-        self.server.set_games(games)
+        self.server.set_tiles(tiles)
         self._fill_tree()
-        self._log(tr("games_found", count=len(games)))
+        self._log(tr("games_found", count=len(tiles)))
         for path, message in errors:
             self._log(tr("ignored", path=path, reason=message))
         if self.prompt_next_scan:
             self.prompt_next_scan = False
-            after = {game.name for game in games}
+            after = {tile.name for tile in tiles}
             self._offer_transfer(sorted(after - before), sorted(before - after))
 
     def _fill_tree(self):
         labels = {"netiso": tr("state_netiso"), "console": tr("state_console")}
+        selected = self.tree.selection()
         self.tree.delete(*self.tree.get_children())
-        for game in self.games:
-            self.tree.insert("", "end", values=(
-                game.name, labels.get(self.states.get(game.name), tr("state_pending")),
-                "%08X" % game.title_id, "%d/%d" % (game.disc, game.discs),
-                tr("size_gb", size=game.size / 1e9), os.path.dirname(game.path)))
+        for tile in self.tiles:
+            game = tile.game()
+            disc = (tr("disc_of", disc=game.disc, count=len(tile.games)) if tile.multi_disc
+                    else "%d/%d" % (game.disc, game.discs))
+            self.tree.insert("", "end", iid=tile.name, values=(
+                tile.name, labels.get(self.states.get(tile.name), tr("state_pending")),
+                "%08X" % tile.title_id, disc, tr("size_gb", size=game.size / 1e9), game.path))
+        if selected and self.tree.exists(selected[0]):
+            self.tree.selection_set(selected[0])
+
+    def _next_disc(self):
+        selected = self.tree.selection()
+        tile = next((t for t in self.tiles if selected and t.name == selected[0]), None)
+        if tile is None or not tile.multi_disc:
+            messagebox.showinfo("NetISO Manager", tr("select_multi_disc"))
+            return
+        disc = tile.next_disc()
+        self.settings["active_discs"]["%08X" % tile.title_id] = disc
+        save_settings(self._collect_settings())
+        self._fill_tree()
+        self._log(tr("disc_selected", name=tile.name, disc=disc))
+        playing, _total = self.server.status()
+        if playing and playing[0] == tile.name:
+            self._log(tr("disc_in_use", name=tile.name))
 
     # ---- automatic detection
 
@@ -357,16 +410,23 @@ class App(tk.Tk):
 
     # ---- console
 
-    def _push(self):
-        if self.busy:
-            return
+    def _console_settings(self):
+        """Saves and returns the settings, or None after telling what is missing."""
         settings = self._collect_settings()
         save_settings(settings)
         self._refresh_pc_ip()
         if not settings["console_ip"]:
             messagebox.showwarning("NetISO Manager", tr("need_ip"))
+            return None
+        return dict(settings)
+
+    def _push(self):
+        if self.busy:
             return
-        if not self.games:
+        settings = self._console_settings()
+        if settings is None:
+            return
+        if not self.tiles:
             messagebox.showwarning("NetISO Manager", tr("no_games"))
             return
         try:
@@ -375,15 +435,14 @@ class App(tk.Tk):
         except OSError as error:
             messagebox.showerror("NetISO Manager", tr("stub_missing", error=error))
             return
-        games = list(self.games)
-        self.busy = True
-        self.push_button.configure(state="disabled")
-        self._log(tr("sync_start", count=len(games), host=settings["console_ip"]))
+        tiles = list(self.tiles)
+        self._set_busy(True)
+        self._log(tr("sync_start", count=len(tiles), host=settings["console_ip"]))
 
         def work():
             try:
                 states = netiso_console.sync(
-                    dict(settings), games, stub, lambda text: self.events.put(("log", text)))
+                    settings, tiles, stub, lambda text: self.events.put(("log", text)))
                 sent = sum(1 for state in states.values() if state == "netiso")
                 message = tr("sync_done", netiso=sent, console=len(states) - sent)
             except (netiso_console.ConsoleError, netiso_iso.IsoError) as error:
@@ -391,6 +450,47 @@ class App(tk.Tk):
             self.events.put(("pushed", (message, states)))
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _setup(self, plugin_file=None):
+        if self.busy:
+            return
+        settings = self._console_settings()
+        if settings is None:
+            return
+        pc_ip = local_ip(settings["console_ip"])
+        if pc_ip is None:
+            messagebox.showwarning("NetISO Manager", tr("need_ip"))
+            return
+        if plugin_file is None and not messagebox.askyesno(
+                "NetISO Manager", tr("setup_confirm", ip=pc_ip)):
+            return
+        self._set_busy(True)
+
+        def work():
+            try:
+                changed = netiso_console.setup_console(
+                    settings, pc_ip, plugin_file, lambda text: self.events.put(("log", text)))
+                result = ("done", changed)
+            except netiso_console.PluginMissing as error:
+                result = ("plugin", str(error))
+            except (netiso_console.ConsoleError, OSError) as error:
+                result = ("failed", str(error))
+            self.events.put(("setup", result))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _setup_finished(self, result):
+        kind, detail = result
+        if kind == "done":
+            self._log(tr("setup_done_reboot") if detail else tr("setup_done"))
+        elif kind == "plugin":
+            self._log(detail)
+            plugin_file = filedialog.askopenfilename(
+                title=tr("choose_plugin"), filetypes=[("NetISO.xex", "*.xex")])
+            if plugin_file:
+                self._setup(plugin_file)
+        else:
+            self._log(tr("setup_failed", error=detail))
 
     # ---- server
 
@@ -427,6 +527,21 @@ class App(tk.Tk):
                               else tr("server_stopped"))
         self.server_button.configure(text=tr("server_stop") if running else tr("server_start"))
 
+    def _show_playing(self):
+        self.after(STATUS_INTERVAL_MS, self._show_playing)
+        playing, total = self.server.status()
+        rate = (total - self.last_bytes) / 1e6 / (STATUS_INTERVAL_MS / 1000)
+        self.last_bytes = total
+        self.playing.set(tr("playing_value", name=playing[0], disc=playing[1], rate=rate)
+                         if playing else tr("nothing_playing"))
+
+    def _toggle_windows_start(self):
+        try:
+            netiso_winstart.set_enabled(self.with_windows.get(), SCRIPT_PATH)
+        except OSError as error:
+            self._log(str(error))
+        self.with_windows.set(netiso_winstart.is_enabled())
+
     def _close(self):
         save_settings(self._collect_settings())
         self.server.stop()
@@ -434,4 +549,4 @@ class App(tk.Tk):
 
 
 if __name__ == "__main__":
-    App().mainloop()
+    App(minimized=netiso_winstart.MINIMIZED_FLAG in sys.argv[1:]).mainloop()

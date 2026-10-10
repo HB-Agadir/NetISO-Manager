@@ -12,15 +12,16 @@ import netiso_iso
 import netiso_server
 
 HEADER = struct.Struct(">4sHHQI")
+STUB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "stub.xex")
 
 
-def make_xex(title_id, media_id):
+def make_xex(title_id, media_id, disc=1, discs=1):
     """Minimal XEX2 header holding only an execution info entry."""
     header = bytearray(0x40)
     header[0:4] = b"XEX2"
     struct.pack_into(">I", header, 0x14, 1)
     struct.pack_into(">II", header, 0x18, netiso_iso.XEX_EXECUTION_INFO, 0x20)
-    struct.pack_into(">IIIIBBBB", header, 0x20, media_id, 0, 0, title_id, 0, 0, 1, 2)
+    struct.pack_into(">IIIIBBBB", header, 0x20, media_id, 0, 0, title_id, 0, 0, disc, discs)
     return bytes(header)
 
 
@@ -44,13 +45,20 @@ def make_iso(path, partition, xex):
         f.write(b"\0")
 
 
-class IsoTests(unittest.TestCase):
+class TempDirCase(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)
 
+    def game(self, filename, title_id, disc=1, discs=1):
+        path = os.path.join(self.dir.name, filename)
+        open(path, "wb").close()
+        return netiso_iso.Game(path, netiso_iso.clean_title(path), title_id, 0x99, disc, discs)
+
+
+class IsoTests(TempDirCase):
     def test_reads_ids_from_each_disc_layout(self):
-        xex = make_xex(0x4D530A26, 0x3528321A)
+        xex = make_xex(0x4D530A26, 0x3528321A, 1, 2)
         for partition in (0, 0x2080000):
             path = os.path.join(self.dir.name, "game%X.iso" % partition)
             make_iso(path, partition, xex)
@@ -63,64 +71,106 @@ class IsoTests(unittest.TestCase):
         with self.assertRaises(netiso_iso.IsoError):
             netiso_iso.read_iso_ids(path)
 
-    def test_scan_gives_unique_fatx_safe_names_and_reports_bad_files(self):
-        xex = make_xex(1, 2)
-        for folder in ("a", "b"):
-            os.mkdir(os.path.join(self.dir.name, folder))
-            make_iso(os.path.join(self.dir.name, folder, "Jeu: édition.iso".replace(":", "")), 0, xex)
+    def test_title_drops_region_and_language_tags_but_keeps_disc_tags(self):
+        for filename, title in (
+                ("Batman - Arkham Origins (USA, Europe) (En,Fr,De) (Disc 1).iso",
+                 "Batman - Arkham Origins (Disc 1)"),
+                ("Mafia II (USA, Europe) (Add-On Content Disc).iso",
+                 "Mafia II (Add-On Content Disc)"),
+                ("Metro 2033 (Europe) (En,De).iso", "Metro 2033"),
+                ("Outfit, The (USA) [b].iso", "Outfit, The"),
+                ("Gears of War - Judgment.iso", "Gears of War - Judgment"),
+                ("(only tags).iso", "(only tags)")):
+            self.assertEqual(netiso_iso.clean_title(filename), title)
+
+    def test_scan_reports_bad_files_and_names_tiles_for_fatx(self):
+        os.mkdir(os.path.join(self.dir.name, "a"))
+        make_iso(os.path.join(self.dir.name, "a", "Jeu édition très longue " + "x" * 40 + ".iso"),
+                 0, make_xex(1, 2))
         with open(os.path.join(self.dir.name, "a", "bad.iso"), "wb") as f:
             f.write(b"x")
-        games, errors = netiso_iso.scan(
-            [os.path.join(self.dir.name, "a"), os.path.join(self.dir.name, "b")], False)
-        self.assertEqual([g.name for g in games], ["Jeu _dition", "Jeu _dition 2"])
+        tiles, errors = netiso_iso.scan([os.path.join(self.dir.name, "a")], False)
+        self.assertEqual(len(tiles), 1)
         self.assertEqual(len(errors), 1)
-        for game in games:
-            self.assertLessEqual(len(game.name), netiso_iso.FATX_NAME_MAX)
+        self.assertLessEqual(len(tiles[0].name), netiso_iso.FATX_NAME_MAX)
+        self.assertTrue(tiles[0].name.isascii())
 
-    def real_stub(self):
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "stub.xex"), "rb") as f:
-            return f.read()
 
-    def test_stamp_stub_writes_the_game_ids_and_keeps_the_header_hash_valid(self):
-        path = os.path.join(self.dir.name, "g.iso")
-        make_iso(path, 0, make_xex(0xAABBCCDD, 0x11223344))
-        games, _ = netiso_iso.scan([self.dir.name], False)
-        stub = self.real_stub()
-        files = netiso_iso.tile_files(stub, games[0])
+class TileTests(TempDirCase):
+    def test_discs_of_one_game_share_a_single_tile(self):
+        games = [self.game("Big Game (USA) (Disc 2).iso", 0x500, 2, 3),
+                 self.game("Big Game (USA) (Disc 1).iso", 0x500, 1, 3),
+                 self.game("Big Game (USA) (Disc 3).iso", 0x500, 3, 3),
+                 self.game("Other (Europe).iso", 0x600)]
+        tiles = netiso_iso.build_tiles(games)
+        self.assertEqual([t.name for t in tiles], ["Big Game", "Other"])
+        self.assertEqual([g.disc for g in tiles[0].games], [1, 2, 3])
+        self.assertTrue(tiles[0].multi_disc)
+        self.assertFalse(tiles[1].multi_disc)
+
+    def test_a_tile_launches_disc_1_until_another_disc_is_chosen(self):
+        tile = netiso_iso.build_tiles([self.game("G (Disc 1).iso", 7, 1, 2),
+                                       self.game("G (Disc 2).iso", 7, 2, 2)])[0]
+        self.assertEqual(tile.game().disc, 1)
+        self.assertEqual(tile.next_disc(), 2)
+        self.assertEqual(tile.game().disc, 2)
+        self.assertEqual(tile.next_disc(), 1)
+
+    def test_two_copies_of_the_same_game_get_two_tiles(self):
+        games = [self.game("Metro 2033 (Europe).iso", 0x700),
+                 self.game("Metro 2033 (USA).iso", 0x700),
+                 self.game("Dup (Disc 1).iso", 0x800, 1, 2),
+                 self.game("Dup (Disc 1) (Alt).iso", 0x800, 1, 2)]
+        names = [t.name for t in netiso_iso.build_tiles(games)]
+        self.assertEqual(names, ["Dup (Disc 1)", "Dup (Disc 1) 2", "Metro 2033", "Metro 2033 2"])
+
+    def test_discs_that_are_separate_games_keep_their_disc_tag(self):
+        games = [self.game("Collection (USA) (Disc 1).iso", 0x900),
+                 self.game("Collection (USA) (Disc 2).iso", 0x901),
+                 self.game("Mafia II (USA) (Add-On Content Disc).iso", 0xFFED2000),
+                 self.game("Mafia II (USA) (En,Fr).iso", 0x902)]
+        names = [t.name for t in netiso_iso.build_tiles(games)]
+        self.assertEqual(names, ["Collection (Disc 1)", "Collection (Disc 2)", "Mafia II",
+                                 "Mafia II (Add-On Content Disc)"])
+
+    def test_tile_files_carry_the_ids_a_valid_header_hash_and_the_message(self):
+        with open(STUB_PATH, "rb") as f:
+            stub = f.read()
+        tile = netiso_iso.build_tiles([self.game("g (USA).iso", 0xAABBCCDD)])[0]
+        files = netiso_iso.tile_files(stub, tile, "PC injoignable é")
         stamped = files["default.xex"]
         offset = netiso_iso.xex_execution_info_offset(stamped)
-        self.assertEqual(struct.unpack_from(">I", stamped, offset)[0], 0x11223344)
+        self.assertEqual(struct.unpack_from(">I", stamped, offset)[0], 0x99)
         self.assertEqual(struct.unpack_from(">I", stamped, offset + 12)[0], 0xAABBCCDD)
         hash_at = struct.unpack_from(">I", stamped, 0x10)[0] + netiso_iso.XEX_HEADER_HASH
         self.assertEqual(stamped[hash_at:hash_at + 20], netiso_iso.xex_header_hash(stamped))
         self.assertNotEqual(stamped[hash_at:hash_at + 20], stub[hash_at:hash_at + 20])
         self.assertEqual(len(stamped), len(stub))
-        self.assertEqual(files["netiso.cfg"], b"g\r\n")
+        self.assertEqual(files["netiso.cfg"], "g\r\nPC injoignable é\r\n".encode("utf-8"))
 
     def test_stamp_stub_refuses_a_stub_whose_header_hash_it_cannot_reproduce(self):
-        path = os.path.join(self.dir.name, "g.iso")
-        make_iso(path, 0, make_xex(1, 2))
-        games, _ = netiso_iso.scan([self.dir.name], False)
-        broken = bytearray(self.real_stub())
+        with open(STUB_PATH, "rb") as f:
+            broken = bytearray(f.read())
         broken[0x20] ^= 0xFF
+        tile = netiso_iso.build_tiles([self.game("g.iso", 1)])[0]
         with self.assertRaises(netiso_iso.IsoError):
-            netiso_iso.stamp_stub(bytes(broken), games[0])
+            netiso_iso.stamp_stub(bytes(broken), tile)
 
 
-class ServerTests(unittest.TestCase):
+class ServerTests(TempDirCase):
     def setUp(self):
-        self.dir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.dir.cleanup)
-        self.games = []
-        for folder, name in (("x", "Alpha"), ("y", "Beta")):
-            os.mkdir(os.path.join(self.dir.name, folder))
-            path = os.path.join(self.dir.name, folder, name + " file.iso")
+        super().setUp()
+        games = []
+        for filename, title_id, disc, discs in (("Alpha (USA).iso", 1, 1, 1),
+                                                ("Beta (Disc 1).iso", 2, 1, 2),
+                                                ("Beta (Disc 2).iso", 2, 2, 2)):
+            path = os.path.join(self.dir.name, filename)
             with open(path, "wb") as f:
-                f.write((name.encode() * 4096)[:3 * netiso_server.SECTOR])
-            self.games.append(netiso_iso.Game(path, name, 1, 2, 1, 1))
-        self.events = []
-        self.server = netiso_server.NetIsoServer(lambda kind, text: self.events.append((kind, text)), port=0)
-        self.server.set_games(self.games)
+                f.write((filename.encode() * 4096)[:3 * netiso_server.SECTOR])
+            games.append(netiso_iso.Game(path, netiso_iso.clean_title(path), title_id, 0, disc, discs))
+        self.tiles = netiso_iso.build_tiles(games)
+        self.server = netiso_server.NetIsoServer(port=0)
+        self.server.set_tiles(self.tiles)
         self.server.start()
         self.addCleanup(self.server.stop)
         port = self.server._listener.getsockname()[1]
@@ -141,7 +191,7 @@ class ServerTests(unittest.TestCase):
     def test_ping(self):
         self.assertEqual(self.request(0, 8), b"ISVRokOK")
 
-    def test_lists_games_from_every_folder_then_an_empty_name(self):
+    def test_lists_one_entry_per_game_then_an_empty_name(self):
         names = [self.request(4, 64, index=i, length=64).rstrip(b"\0") for i in range(3)]
         self.assertEqual(names, [b"Alpha", b"Beta", b""])
 
@@ -150,14 +200,23 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.mount("Beta"), 1)
         self.assertEqual(struct.unpack(">II", self.request(1, 8)), (3, netiso_server.SECTOR))
 
-    def test_reads_the_mounted_game_and_switches_games(self):
+    def test_reads_the_mounted_game_and_reports_what_is_playing(self):
+        self.assertEqual(self.server.status(), (None, 0))
         self.assertEqual(self.mount("Alpha"), 1)
-        self.assertEqual(self.request(3, 10, offset=5, length=10), (b"Alpha" * 3)[:10])
+        self.assertEqual(self.request(3, 10, offset=0, length=10), b"Alpha (USA")
+        self.assertEqual(self.server.status(), (("Alpha", 1), 10))
+
+    def test_a_multi_disc_tile_serves_the_selected_disc(self):
         self.assertEqual(self.mount("Beta"), 1)
-        self.assertEqual(self.request(3, 8, offset=4, length=8), b"BetaBeta")
+        self.assertEqual(self.request(3, 13, length=13), b"Beta (Disc 1)")
+        self.tiles[1].next_disc()
+        self.assertEqual(self.mount("Beta"), 1)
+        self.assertEqual(self.request(3, 13, length=13), b"Beta (Disc 2)")
+        self.assertEqual(self.server.status()[0], ("Beta", 2))
 
     def test_mount_by_original_iso_file_name(self):
-        self.assertEqual(self.mount("Alpha file.iso"), 1)
+        self.assertEqual(self.mount("Beta (Disc 2).iso"), 1)
+        self.assertEqual(self.request(3, 13, length=13), b"Beta (Disc 2)")
 
     def test_unknown_game_and_disable_unmount(self):
         self.assertEqual(self.mount("Alpha"), 1)
@@ -166,43 +225,40 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.mount("Alpha"), 1)
         self.assertEqual(self.mount(netiso_server.DISABLE_NAME), 0)
         self.assertEqual(struct.unpack(">II", self.request(1, 8))[0], 0)
+        self.assertIsNone(self.server.status()[0])
 
 
-class SyncPlanTests(unittest.TestCase):
-    def setUp(self):
-        self.dir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.dir.cleanup)
-
-    def game(self, name, title_id, disc=1):
-        path = os.path.join(self.dir.name, name + ".iso")
-        open(path, "wb").close()
-        return netiso_iso.Game(path, name, title_id, 0, disc, 2)
+class SyncPlanTests(TempDirCase):
+    def tiles(self, *specs):
+        return netiso_iso.build_tiles([self.game(*spec) for spec in specs])
 
     def test_console_copy_wins_over_the_iso(self):
-        a, b = self.game("A", 0x111), self.game("B", 0x222)
-        to_send, to_remove = netiso_console.plan_sync([a, b], {(0x111, 1)}, ["A", "B"])
-        self.assertEqual([g.name for g in to_send], ["B"])
+        tiles = self.tiles(("A.iso", 0x111), ("B.iso", 0x222))
+        to_send, to_remove = netiso_console.plan_sync(tiles, {(0x111, 1)}, ["A", "B"])
+        self.assertEqual([t.name for t in to_send], ["B"])
         self.assertEqual(to_remove, ["A"])
 
     def test_tile_comes_back_when_the_console_copy_is_deleted(self):
-        a = self.game("A", 0x111)
-        to_send, to_remove = netiso_console.plan_sync([a], set(), [])
-        self.assertEqual([g.name for g in to_send], ["A"])
+        tiles = self.tiles(("A.iso", 0x111))
+        to_send, to_remove = netiso_console.plan_sync(tiles, set(), [])
+        self.assertEqual([t.name for t in to_send], ["A"])
         self.assertEqual(to_remove, [])
 
-    def test_only_the_installed_disc_of_a_multi_disc_game_is_skipped(self):
-        d1, d2 = self.game("G1", 0x333, 1), self.game("G2", 0x333, 2)
-        to_send, _ = netiso_console.plan_sync([d1, d2], {(0x333, 1)}, [])
-        self.assertEqual([g.name for g in to_send], ["G2"])
+    def test_multi_disc_tile_stays_while_one_disc_is_missing_from_the_console(self):
+        tiles = self.tiles(("G (Disc 1).iso", 0x333, 1, 2), ("G (Disc 2).iso", 0x333, 2, 2))
+        to_send, _ = netiso_console.plan_sync(tiles, {(0x333, 1)}, [])
+        self.assertEqual([t.name for t in to_send], ["G"])
+        to_send, _ = netiso_console.plan_sync(tiles, {(0x333, 1), (0x333, 2)}, [])
+        self.assertEqual(to_send, [])
 
-    def test_container_install_skips_every_disc(self):
-        d1, d2 = self.game("G1", 0x333, 1), self.game("G2", 0x333, 2)
-        to_send, _ = netiso_console.plan_sync([d1, d2], {(0x333, None)}, [])
+    def test_container_install_covers_every_disc(self):
+        tiles = self.tiles(("G (Disc 1).iso", 0x333, 1, 2), ("G (Disc 2).iso", 0x333, 2, 2))
+        to_send, _ = netiso_console.plan_sync(tiles, {(0x333, None)}, [])
         self.assertEqual(to_send, [])
 
     def test_tile_of_an_iso_removed_from_the_pc_is_removed(self):
-        a = self.game("A", 0x111)
-        _, to_remove = netiso_console.plan_sync([a], set(), ["a", "Gone"])
+        tiles = self.tiles(("A.iso", 0x111))
+        _, to_remove = netiso_console.plan_sync(tiles, set(), ["a", "Gone"])
         self.assertEqual(to_remove, ["Gone"])
 
     def test_list_line_parsing(self):
@@ -214,8 +270,36 @@ class SyncPlanTests(unittest.TestCase):
         self.assertIsNone(netiso_console.parse_list_line("total 3"))
 
     def test_xex_game_key(self):
-        self.assertEqual(netiso_console.xex_game_key(make_xex(0x4D530A26, 5)), (0x4D530A26, 1))
+        self.assertEqual(netiso_console.xex_game_key(make_xex(0x4D530A26, 5, 2, 4)), (0x4D530A26, 2))
         self.assertIsNone(netiso_console.xex_game_key(b"not a xex"))
+
+
+class LaunchIniTests(unittest.TestCase):
+    INI = ("; comment\r\n[Paths]\r\nDefault = Hdd:\\Aurora\\Aurora.xex\r\nplugin1 = ignored\r\n"
+           "[Plugins]\r\nplugin1 = Hdd:\\X360Remap.xex\r\nplugin2 = \r\nplugin3 =\r\n"
+           "[Settings]\r\nnxemini = true\r\n")
+
+    def test_adds_the_plugin_to_the_first_free_slot_and_touches_nothing_else(self):
+        path, text = netiso_console.plan_launch_ini(self.INI)
+        self.assertEqual(path, "Hdd:\\Apps\\NetISO.xex")
+        self.assertEqual(text, self.INI.replace("plugin2 = \r\n", "plugin2 = Hdd:\\Apps\\NetISO.xex\r\n"))
+
+    def test_leaves_a_file_that_already_loads_the_plugin(self):
+        ini = self.INI.replace("plugin3 =", "plugin3 = Usb:\\plug\\netiso.XEX")
+        self.assertEqual(netiso_console.plan_launch_ini(ini), ("Usb:\\plug\\netiso.XEX", None))
+
+    def test_fails_when_every_slot_is_taken(self):
+        ini = self.INI.replace("plugin2 = ", "plugin2 = Hdd:\\a.xex").replace(
+            "plugin3 =", "plugin3 = Hdd:\\b.xex")
+        with self.assertRaises(netiso_console.ConsoleError):
+            netiso_console.plan_launch_ini(ini)
+
+    def test_device_names_map_to_ftp_drives(self):
+        self.assertEqual(netiso_console.ini_to_ftp_path("Hdd:\\Apps\\NetISO.xex"),
+                         "/Hdd1/Apps/NetISO.xex")
+        self.assertEqual(netiso_console.ini_to_ftp_path("usb:\\p\\NetISO.xex"), "/Usb0/p/NetISO.xex")
+        with self.assertRaises(netiso_console.ConsoleError):
+            netiso_console.ini_to_ftp_path("Mu:\\NetISO.xex")
 
 
 if __name__ == "__main__":
