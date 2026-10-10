@@ -11,7 +11,7 @@ Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et
 - Creation d'une tuile par jeu et envoi sur la console par le FTP d'Aurora, avec verification de chaque fichier.
 - Serveur NetISO integre, qui sert les jeux de tous les dossiers a la fois.
 - Detection automatique: quand un ISO est ajoute ou retire d'un dossier, l'application le signale et propose de le transferer vers Aurora.
-- Une seule tuile par jeu, meme s'il tient sur plusieurs disques. Le disque lance se choisit dans l'application.
+- Une seule tuile par jeu, meme s'il tient sur plusieurs disques. Le disque se choisit depuis la console, en maintenant la gachette droite (disque suivant) ou gauche (disque precedent) au lancement de la tuile, ou dans l'application.
 - Gestion des doublons: un jeu deja installe sur la console garde la priorite et ne recoit pas de tuile. Si vous le supprimez de la console, sa tuile NetISO revient a la synchronisation suivante.
 - Installation du plugin sur la console en un clic (adresse du PC et `launch.ini`).
 - Affichage du jeu en cours et du debit, demarrage avec Windows.

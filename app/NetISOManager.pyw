@@ -22,6 +22,7 @@ APP_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 SCRIPT_PATH = os.path.abspath(__file__)
 STUB_PATH = os.path.join(APP_DIR, "stub.xex")
 SETTINGS_PATH = os.path.join(os.environ.get("APPDATA", APP_DIR), "NetISOManager", "settings.json")
+TRACE_PATH = os.path.join(os.path.dirname(SETTINGS_PATH), "server_trace.log")
 WATCH_INTERVAL_MS = 15000
 STATUS_INTERVAL_MS = 1000
 PROMPT_NAMES_MAX = 8
@@ -79,7 +80,7 @@ class App(tk.Tk):
         self.tiles = []
         self.states = {}
         self.events = queue.Queue()
-        self.server = netiso_server.NetIsoServer(lambda kind, text: self.events.put(("log", text)))
+        self.server = netiso_server.NetIsoServer(self._server_event)
         self.busy = False
         self.scanned = None      # {path: size} at the last full scan
         self.last_seen = None    # {path: size} at the previous watch poll
@@ -231,6 +232,19 @@ class App(tk.Tk):
 
     # ---- helpers
 
+    def _server_event(self, kind, text):
+        """Called from server threads: journal lines go to the window, traces to a file."""
+        if kind == "disc":
+            self.events.put(("disc", text))
+            text = "%s -> disc %d" % (text[0], text[2])
+        elif kind != "trace":
+            self.events.put(("log", text))
+        try:
+            with open(TRACE_PATH, "a", encoding="utf-8") as f:
+                f.write("%s  %s  %s\n" % (time.strftime("%H:%M:%S"), kind, text))
+        except OSError:
+            pass
+
     def _log(self, text):
         self.log.configure(state="normal")
         self.log.insert("end", "%s  %s\n" % (time.strftime("%H:%M:%S"), text))
@@ -245,6 +259,12 @@ class App(tk.Tk):
                     self._log(payload)
                 elif kind == "scanned":
                     self._show_tiles(*payload)
+                elif kind == "disc":
+                    name, title_id, disc = payload
+                    self.settings["active_discs"]["%08X" % title_id] = disc
+                    save_settings(self._collect_settings())
+                    self._fill_tree()
+                    self._log(tr("disc_selected", name=name, disc=disc))
                 elif kind == "watched":
                     self._compare_snapshot(payload)
                 elif kind == "pushed":

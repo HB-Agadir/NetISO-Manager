@@ -146,7 +146,7 @@ class TileTests(TempDirCase):
         self.assertEqual(stamped[hash_at:hash_at + 20], netiso_iso.xex_header_hash(stamped))
         self.assertNotEqual(stamped[hash_at:hash_at + 20], stub[hash_at:hash_at + 20])
         self.assertEqual(len(stamped), len(stub))
-        self.assertEqual(files["netiso.cfg"], "g\r\nPC injoignable é\r\n".encode("utf-8"))
+        self.assertEqual(files["netiso.cfg"], "g\r\nPC injoignable é\r\n1\r\n".encode("utf-8"))
 
     def test_stamp_stub_refuses_a_stub_whose_header_hash_it_cannot_reproduce(self):
         with open(STUB_PATH, "rb") as f:
@@ -213,6 +213,21 @@ class ServerTests(TempDirCase):
         self.assertEqual(self.mount("Beta"), 1)
         self.assertEqual(self.request(3, 13, length=13), b"Beta (Disc 2)")
         self.assertEqual(self.server.status()[0], ("Beta", 2))
+
+    def test_the_console_can_ask_for_the_next_or_previous_disc(self):
+        events = []
+        self.server._on_event = lambda kind, text: events.append((kind, text))
+        self.assertEqual(self.mount("Beta#+"), 1)
+        self.assertEqual(self.request(3, 13, length=13), b"Beta (Disc 2)")
+        self.assertIn(("disc", ("Beta", 2, 2)), events)
+        self.assertEqual(self.mount("Beta"), 1)
+        self.assertEqual(self.request(3, 13, length=13), b"Beta (Disc 2)")
+        self.assertEqual(self.mount("Beta#-"), 1)
+        self.assertEqual(self.request(3, 13, length=13), b"Beta (Disc 1)")
+
+    def test_asking_for_another_disc_of_a_single_disc_game_changes_nothing(self):
+        self.assertEqual(self.mount("Alpha#+"), 1)
+        self.assertEqual(self.request(3, 10, length=10), b"Alpha (USA")
 
     def test_mount_by_original_iso_file_name(self):
         self.assertEqual(self.mount("Beta (Disc 2).iso"), 1)

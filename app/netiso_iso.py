@@ -62,11 +62,14 @@ class Tile:
                 return game
         return self.games[0]
 
-    def next_disc(self):
-        """Selects the following disc, wrapping around; returns its number."""
+    def step_disc(self, step):
+        """Selects the following (1) or previous (-1) disc, wrapping around; returns its number."""
         numbers = [game.disc for game in self.games]
-        self.active = numbers[(numbers.index(self.game().disc) + 1) % len(numbers)]
+        self.active = numbers[(numbers.index(self.game().disc) + step) % len(numbers)]
         return self.active
+
+    def next_disc(self):
+        return self.step_disc(1)
 
 
 def find_partition(f):
@@ -265,8 +268,10 @@ def scan(folders, recursive):
 def tile_files(stub, tile, message=""):
     """Returns the files of a tile as {filename: bytes}.
 
-    netiso.cfg holds the tile name on its first line and, on the second, the
-    text the launcher shows on the console when the PC cannot be reached.
+    netiso.cfg holds the tile name on its first line, on the second the text
+    the launcher shows on the console when the PC cannot be reached, and on
+    the third the number of discs of the game.
     """
-    config = tile.name.encode("ascii") + b"\r\n" + message.encode("utf-8") + b"\r\n"
+    config = b"\r\n".join((tile.name.encode("ascii"), message.encode("utf-8"),
+                            str(len(tile.games)).encode("ascii"), b""))
     return {"default.xex": stamp_stub(stub, tile), "netiso.cfg": config}

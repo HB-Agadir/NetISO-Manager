@@ -9,6 +9,7 @@ import socket
 import struct
 import threading
 
+import netiso_iso
 from netiso_i18n import tr
 
 PORT = 4323
@@ -16,6 +17,10 @@ HEADER = struct.Struct(">4sHHQI")
 MAGIC = b"ISVR"
 SECTOR = 2048
 DISABLE_NAME = "[Disable Current ISO]"
+# The launcher appends one of these to the game name when the player asks for
+# another disc from the console.
+NEXT_DISC_SUFFIX = "#+"
+PREVIOUS_DISC_SUFFIX = "#-"
 
 CMD_PING = 0
 CMD_GET_SIZE = 1
@@ -99,12 +104,18 @@ class NetIsoServer:
                 self._clients.add(conn)
             threading.Thread(target=self._serve, args=(conn, address[0]), daemon=True).start()
 
-    def _find(self, name):
-        """Returns the disc to serve for a requested name, or None."""
+    def _find(self, name, step=0):
+        """Returns the disc to serve for a requested name, or None.
+
+        A non-zero step first moves the game to its next or previous disc.
+        """
         wanted = name.lower()
         with self._lock:
             for tile in self._tiles:
                 if tile.name.lower() == wanted:
+                    if step and tile.multi_disc:
+                        tile.step_disc(step)
+                        self._on_event("disc", (tile.name, tile.title_id, tile.active))
                     return tile.name, tile.game()
             # Tiles made for the original server name the ISO file itself.
             for tile in self._tiles:
@@ -117,6 +128,7 @@ class NetIsoServer:
     def _serve(self, conn, address):
         self._on_event("client", tr("client_connected", address=address))
         mounted = None
+        descriptor = None  # offset of the mounted disc's volume descriptor
         try:
             while True:
                 magic, cmd, index, offset, length = HEADER.unpack(_recv_exact(conn, HEADER.size))
@@ -135,6 +147,9 @@ class NetIsoServer:
                 elif cmd == CMD_READ:
                     if mounted is None:
                         raise ConnectionError("read without a mounted ISO")
+                    if descriptor is not None and offset <= descriptor < offset + length:
+                        # The console reads this when it (re)discovers the disc.
+                        self._on_event("trace", "volume descriptor read")
                     mounted.seek(offset)
                     data = mounted.read(length).ljust(length, b"\0")
                     with self._lock:
@@ -150,15 +165,28 @@ class NetIsoServer:
                     if mounted is not None:
                         mounted.close()
                         mounted = None
-                    found = None if name == DISABLE_NAME else self._find(name)
+                    step = 0
+                    if name.endswith(NEXT_DISC_SUFFIX):
+                        step, name = 1, name[:-len(NEXT_DISC_SUFFIX)]
+                    elif name.endswith(PREVIOUS_DISC_SUFFIX):
+                        step, name = -1, name[:-len(PREVIOUS_DISC_SUFFIX)]
+                    found = None if name == DISABLE_NAME else self._find(name, step)
                     if found is not None:
                         try:
                             mounted = open(found[1].path, "rb", buffering=0)
                         except OSError as error:
                             self._on_event("mount", tr("open_failed", path=found[1].path,
                                                        error=error))
+                    descriptor = None
+                    if mounted is not None:
+                        try:
+                            descriptor = netiso_iso.find_partition(mounted) + 32 * SECTOR
+                        except (OSError, netiso_iso.IsoError):
+                            pass
                     with self._lock:
                         self._playing = (found[0], found[1].disc) if mounted is not None else None
+                    self._on_event("trace", "mount request '%s' -> %s" % (
+                        name, found[1].path if mounted is not None else "nothing"))
                     if mounted is not None:
                         self._on_event("mount", tr("game_mounted", name=found[0],
                                                    disc=found[1].disc))

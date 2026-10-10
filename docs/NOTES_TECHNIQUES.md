@@ -96,6 +96,14 @@ A valider: le comportement des title updates (le stub porte le meme Title ID et 
 - Lanceur 1.0 (`stub/main.cpp`): detecte l'absence de serveur (le plugin liste alors une seule entree `No Server!`) et met en file une notification avant de rendre la main. Compile, garde dans `deploy/stub_1.0_candidate.xex`, PAS ENCORE VALIDE sur console. `app/stub.xex` reste le build 7 valide; il ignore la ligne 2 de `netiso.cfg`.
 - Changement de disque en cours de partie et demontage au retour dans Aurora: non realises, pas de declencheur fiable depuis le PC.
 
+## Changement de disque depuis la console (2026-10-10)
+
+- Mesure: ouvrir puis fermer le vrai tiroir (`rgh tray open/close`) pendant un jeu NetISO ne provoque aucune relecture du disque cote serveur (le descripteur de volume n'est relu qu'au montage et au lancement du titre). Le serveur ne peut donc pas deduire une demande de changement de disque, ni en imposer un: seule une commande de montage emise par la console declenche le cycle de tiroir simule.
+- Realise: le lanceur 1.0 lit la manette au demarrage d'une tuile multi-disques (ligne 3 de `netiso.cfg` = nombre de disques, fenetre de 700 ms). Gachette droite ou clic du stick droit: disque suivant. Gachette gauche ou clic du stick gauche: disque precedent. Il ajoute alors `#+` ou `#-` au nom dans la demande de montage; le serveur avance le disque actif de la tuile, le memorise et le sert.
+- Valide sur console: le suffixe traverse le plugin et le serveur monte le disque 2 (Wolfenstein - The New Order, 4 disques, une seule tuile). La lecture de la manette elle-meme reste a essayer en vrai.
+- Lanceur 1.0 valide sur console pour le chemin normal et devient `app/stub.xex`. Non observes: la notification a l'ecran, et le cas d'un nom de jeu inconnu du serveur (retour a Aurora avant la fin de l'attente, sans message).
+- Changement de disque sans quitter le jeu: demanderait un petit plugin resident qui emet la commande de montage sur un raccourci manette. Non realise.
+
 ## Questions ouvertes
 
 1. Title updates: s'appliquent-ils a un jeu lance par une tuile qui porte le meme Title ID et Media ID?

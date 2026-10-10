@@ -13,6 +13,7 @@
 #include "xkelib.h"
 
 static const DWORD kDiscTimeoutMs = 30000;
+static const DWORD kDiscChoiceMs = 700;
 static const char kNoServerEntry[] = "No Server!";
 static const WCHAR kDefaultMessage[] = L"NetISO: PC not reachable. Open NetISO Manager.";
 
@@ -54,24 +55,51 @@ static void TrimLine(char *line)
 		line[--len] = '\0';
 }
 
-static bool ReadConfig(char *name, size_t nameSize, WCHAR *message, int messageChars)
+static bool ReadConfig(char *name, size_t nameSize, WCHAR *message, int messageChars, int *discs)
 {
 	char line[512];
 	FILE *cfg = fopen("game:\\netiso.cfg", "rb");
 	if (cfg == NULL)
 		return false;
 	bool ok = fgets(name, (int)nameSize, cfg) != NULL;
+	*discs = 1;
 	if (ok && fgets(line, sizeof(line), cfg) != NULL)
 	{
 		TrimLine(line);
 		if (line[0] != '\0')
 			MultiByteToWideChar(CP_UTF8, 0, line, -1, message, messageChars);
+		if (fgets(line, sizeof(line), cfg) != NULL)
+			*discs = atoi(line);
 	}
 	fclose(cfg);
 	if (!ok)
 		return false;
 	TrimLine(name);
 	return name[0] != '\0';
+}
+
+// Lets the player pick another disc of a multi-disc game from the console:
+// holding the right trigger or right stick button while the tile starts asks
+// for the next disc, the left ones for the previous disc. Returns the suffix
+// the server understands, or an empty string.
+static const char *DiscRequest()
+{
+	DWORD start = GetTickCount();
+	while (GetTickCount() - start < kDiscChoiceMs)
+	{
+		for (DWORD port = 0; port < 4; port++)
+		{
+			XINPUT_STATE state;
+			if (XInputGetState(port, &state) != ERROR_SUCCESS)
+				continue;
+			if (state.Gamepad.bRightTrigger > 128 || (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB))
+				return "#+";
+			if (state.Gamepad.bLeftTrigger > 128 || (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB))
+				return "#-";
+		}
+		Sleep(20);
+	}
+	return "";
 }
 
 // The plugin lists a single "No Server!" entry while it has no connection to the PC.
@@ -166,7 +194,8 @@ void __cdecl main()
 	Log("netiso launcher 1.0");
 	wcscpy(message, kDefaultMessage);
 
-	if (!ReadConfig(name, sizeof(name), message, 256))
+	int discs = 1;
+	if (!ReadConfig(name, sizeof(name), message, 256, &discs))
 	{
 		Log("netiso.cfg missing or empty");
 		FailToDashboard(message);
@@ -187,6 +216,13 @@ void __cdecl main()
 		Log("PC server not reachable");
 		FailToDashboard(message);
 		return;
+	}
+
+	if (discs > 1)
+	{
+		const char *request = DiscRequest();
+		Log("%d discs, request '%s'", discs, request);
+		strncat(name, request, sizeof(name) - strlen(name) - 1);
 	}
 
 	bool patched = WritePluginOpcode(kExitCallOpcode, kNopOpcode);
