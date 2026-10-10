@@ -5,6 +5,8 @@ import os
 import re
 import struct
 
+from netiso_i18n import tr
+
 SECTOR = 2048
 XDVDFS_MAGIC = b"MICROSOFT*XBOX*MEDIA"
 # Offset of the game partition inside the image, by disc layout.
@@ -38,7 +40,7 @@ def find_partition(f):
         f.seek(offset + 32 * SECTOR)
         if f.read(len(XDVDFS_MAGIC)) == XDVDFS_MAGIC:
             return offset
-    raise IsoError("partition de jeu introuvable")
+    raise IsoError(tr("no_partition"))
 
 
 def find_root_file(f, partition, wanted):
@@ -65,18 +67,18 @@ def find_root_file(f, partition, wanted):
         for child in (left, right):
             if child not in (0, 0xFFFF):
                 pending.append(child * 4)
-    raise IsoError("%s absent de la racine du disque" % wanted)
+    raise IsoError(tr("file_missing", name=wanted))
 
 
 def xex_execution_info_offset(header):
     if header[:4] != b"XEX2":
-        raise IsoError("default.xex n'est pas un fichier XEX2")
+        raise IsoError(tr("not_xex2"))
     count = struct.unpack_from(">I", header, 0x14)[0]
     for i in range(count):
         key, value = struct.unpack_from(">II", header, 0x18 + i * 8)
         if key == XEX_EXECUTION_INFO:
             return value
-    raise IsoError("default.xex sans en-tete d'execution")
+    raise IsoError(tr("no_exec_info"))
 
 
 def read_iso_ids(path):
@@ -110,7 +112,7 @@ def stamp_stub(stub, game):
     security = struct.unpack_from(">I", data, 0x10)[0]
     hash_at = security + XEX_HEADER_HASH
     if xex_header_hash(data) != bytes(data[hash_at:hash_at + 20]):
-        raise IsoError("lanceur inattendu: empreinte d'en-tete non reconnue")
+        raise IsoError(tr("bad_stub"))
     offset = xex_execution_info_offset(data)
     struct.pack_into(">I", data, offset, game.media_id)
     struct.pack_into(">I", data, offset + 12, game.title_id)
@@ -147,6 +149,28 @@ def find_isos(folders, recursive):
                       if n.lower().endswith(".iso")]
     unique = {os.path.normcase(os.path.abspath(p)): p for p in found}
     return sorted(unique.values(), key=lambda p: os.path.basename(p).lower())
+
+
+def snapshot(folders, recursive):
+    """Returns {path: size} for every ISO in the folders; cheap enough to poll."""
+    result = {}
+    for path in find_isos(folders, recursive):
+        try:
+            result[path] = os.path.getsize(path)
+        except OSError:
+            pass
+    return result
+
+
+def is_being_written(path):
+    """True while another program (a copy, a download) still holds the file open for writing."""
+    if not os.access(path, os.W_OK):
+        return False  # read-only file: nothing is writing to it
+    try:
+        with open(path, "r+b"):
+            return False
+    except OSError:
+        return True
 
 
 def scan(folders, recursive):

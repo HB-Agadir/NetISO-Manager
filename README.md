@@ -10,6 +10,8 @@ Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et
 - Lecture du Title ID et du Media ID dans chaque ISO (XGD2, XGD3, XISO).
 - Creation d'une tuile par jeu et envoi sur la console par le FTP d'Aurora, avec verification de chaque fichier.
 - Serveur NetISO integre, qui sert les jeux de tous les dossiers a la fois.
+- Detection automatique: quand un ISO est ajoute ou retire d'un dossier, l'application le signale et propose de le transferer vers Aurora.
+- Interface en francais, anglais et arabe.
 - Gestion des doublons: un jeu deja installe sur la console garde la priorite et ne recoit pas de tuile. Si vous le supprimez de la console, sa tuile NetISO revient a la synchronisation suivante.
 
 ## Prerequis
@@ -68,6 +70,7 @@ Les details techniques, dont les obstacles rencontres, sont dans [docs/NOTES_TEC
 
 ```
 python app/tests/test_core.py
+python app/tests/test_app.py
 ```
 
 ## Credits

@@ -9,6 +9,8 @@ import socket
 import struct
 import threading
 
+from netiso_i18n import tr
+
 PORT = 4323
 HEADER = struct.Struct(">4sHHQI")
 MAGIC = b"ISVR"
@@ -28,7 +30,7 @@ def _recv_exact(conn, size):
     while size > 0:
         chunk = conn.recv(size)
         if not chunk:
-            raise ConnectionError("connexion fermee")
+            raise ConnectionError("closed")
         chunks.append(chunk)
         size -= len(chunk)
     return b"".join(chunks)
@@ -63,7 +65,7 @@ class NetIsoServer:
             raise
         self._listener = listener
         threading.Thread(target=self._accept_loop, args=(listener,), daemon=True).start()
-        self._on_event("server", "Serveur demarre sur le port %d" % self.port)
+        self._on_event("server", tr("server_started", port=self.port))
 
     def stop(self):
         listener, self._listener = self._listener, None
@@ -77,7 +79,7 @@ class NetIsoServer:
                 conn.close()
             except OSError:
                 pass
-        self._on_event("server", "Serveur arrete")
+        self._on_event("server", tr("server_stopped_msg"))
 
     def _accept_loop(self, listener):
         while True:
@@ -103,13 +105,13 @@ class NetIsoServer:
         return None
 
     def _serve(self, conn, address):
-        self._on_event("client", "Console connectee: %s" % address)
+        self._on_event("client", tr("client_connected", address=address))
         mounted = None
         try:
             while True:
                 magic, cmd, index, offset, length = HEADER.unpack(_recv_exact(conn, HEADER.size))
                 if magic != MAGIC:
-                    raise ConnectionError("requete invalide")
+                    raise ConnectionError("bad request")
                 if cmd == CMD_PING:
                     conn.sendall(b"ISVRokOK")
                 elif cmd == CMD_GET_SIZE:
@@ -122,7 +124,7 @@ class NetIsoServer:
                     conn.sendall(struct.pack(">I", 0))
                 elif cmd == CMD_READ:
                     if mounted is None:
-                        raise ConnectionError("lecture sans ISO monte")
+                        raise ConnectionError("read without a mounted ISO")
                     mounted.seek(offset)
                     conn.sendall(mounted.read(length).ljust(length, b"\0"))
                 elif cmd == CMD_GET_NAME:
@@ -140,19 +142,19 @@ class NetIsoServer:
                         try:
                             mounted = open(game.path, "rb", buffering=0)
                         except OSError as error:
-                            self._on_event("mount", "Ouverture impossible: %s (%s)" % (game.path, error))
+                            self._on_event("mount", tr("open_failed", path=game.path, error=error))
                     if mounted is not None:
-                        self._on_event("mount", "Jeu monte: %s" % game.name)
+                        self._on_event("mount", tr("game_mounted", name=game.name))
                     elif name == DISABLE_NAME:
-                        self._on_event("mount", "Aucun jeu monte")
+                        self._on_event("mount", tr("no_game_mounted"))
                     elif game is None:
-                        self._on_event("mount", "Jeu inconnu demande: %s" % name)
+                        self._on_event("mount", tr("unknown_game", name=name))
                     conn.sendall(struct.pack(">I", 1 if mounted is not None else 0))
                 else:
-                    raise ConnectionError("commande inconnue %d" % cmd)
+                    raise ConnectionError("unknown command %d" % cmd)
         except (ConnectionError, OSError, struct.error) as error:
             if self.running:
-                self._on_event("client", "Console deconnectee: %s (%s)" % (address, error))
+                self._on_event("client", tr("client_disconnected", address=address))
         finally:
             if mounted is not None:
                 mounted.close()

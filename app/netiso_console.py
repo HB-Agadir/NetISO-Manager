@@ -6,6 +6,7 @@ import io
 import struct
 
 import netiso_iso
+from netiso_i18n import tr
 
 CONTENT_ROOT = "Content/0000000000000000"
 GAME_CONTENT_TYPES = ("00007000", "00004000")  # Games on Demand, installed disc
@@ -25,8 +26,7 @@ def connect(host, user, password, port=21):
         ftp.login(user, password)
         return ftp
     except (OSError, ftplib.Error) as error:
-        raise ConsoleError("connexion FTP impossible vers %s: %s. Aurora doit etre ouvert "
-                           "sur la console." % (host, error))
+        raise ConsoleError(tr("ftp_connect_failed", host=host, error=error))
 
 
 def parse_list_line(line):
@@ -177,7 +177,7 @@ def _ensure_dir(ftp, path):
     try:
         ftp.mkd(path)
     except ftplib.Error as error:
-        raise ConsoleError("creation de %s refusee: %s" % (path, error))
+        raise ConsoleError(tr("mkdir_refused", path=path, error=error))
 
 
 def send_tile(ftp, remote_root, name, files):
@@ -191,7 +191,7 @@ def send_tile(ftp, remote_root, name, files):
         readback = io.BytesIO()
         ftp.retrbinary("RETR " + path, readback.write)
         if hashlib.sha256(readback.getvalue()).digest() != hashlib.sha256(data).digest():
-            raise ConsoleError("%s est different sur la console apres l'envoi" % path)
+            raise ConsoleError(tr("verify_failed", path=path))
 
 
 def sync(settings, games, stub, log):
@@ -205,20 +205,20 @@ def sync(settings, games, stub, log):
                      if f.strip("/")} | {remote_root.strip("/").split("/")[0]})
     ftp = connect(settings["console_ip"], settings["ftp_user"], settings["ftp_password"])
     try:
-        log("Recherche des jeux deja installes sur la console...")
+        log(tr("looking_installed"))
         installed = installed_games(ftp, settings["console_game_folders"], drives, remote_root)
-        log("%d jeu(x) installe(s) sur la console" % len(installed))
+        log(tr("installed_count", count=len(installed)))
         to_send, to_remove = plan_sync(games, installed, existing_tiles(ftp, remote_root))
         for name in to_remove:
             remove_tile(ftp, remote_root, name)
-            log("Tuile retiree: %s" % name)
+            log(tr("tile_removed", name=name))
         for number, game in enumerate(to_send, 1):
             send_tile(ftp, remote_root, game.name, netiso_iso.tile_files(stub, game))
             log("  %d/%d  %s" % (number, len(to_send), game.name))
         sent = {game.name for game in to_send}
         return {game.name: "netiso" if game.name in sent else "console" for game in games}
     except (OSError, ftplib.Error) as error:
-        raise ConsoleError("erreur FTP: %s" % error)
+        raise ConsoleError(tr("ftp_error", error=error))
     finally:
         try:
             ftp.quit()
