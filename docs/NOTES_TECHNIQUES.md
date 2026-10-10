@@ -110,7 +110,9 @@ A valider: le comportement des title updates (le stub porte le meme Title ID et 
 - `content.db` et `settings.db` sont lisibles par le FTP d'Aurora pendant qu'il tourne (`/Game/Data/Databases/`), mais pas par XBDM (acces refuse). Les modifier de l'exterieur pendant qu'Aurora les utilise n'est pas sur.
 - Lu dans l'image memoire d'Aurora 0.7b.2: permissions de script valides `http`, `ini`, `filesystem`, `settings`, `sql`; fonctions `Sql.Execute`, `Sql.ExecuteFetchRows`, `Script.RefreshListOnExit`; Aurora nomme `Config` la base des reglages (`Config.ScanPaths`) et utilise lui-meme `DELETE FROM ContentItems WHERE Id = ?`.
 - Realise: apres chaque synchronisation, l'application lit les deux bases par FTP, repere les entrees du chemin de scan des tuiles dont le dossier n'existe plus, et depose un script utilitaire Aurora (`User\Scripts\Utility\NetISO Cleanup\Main.lua`) qui supprime exactement ces Id, ainsi que leurs references dans `UserRecentGames`, `UserFavorites`, `UserHidden` et `TitleSettings`. Les jeux hors du dossier des tuiles ne sont jamais vises. L'utilisateur lance le script depuis Aurora.
-- A valider sur console: l'execution du script (que `Sql.Execute` agit bien sur la base de contenu et que le prefixe `Config.` est accepte).
+- Valide sur console: le script s'execute depuis le menu des scripts utilitaires d'Aurora. Liste passee de 82 a 61 entrees: les 21 fantomes NetISO retires, aucune entree hors du dossier des tuiles, les 42 jeux de `\Games` intacts.
+- Garde-fous: chaque `DELETE` nomme ses Id et exige en plus que `Directory` commence par le dossier des tuiles; le script ne contient aucune operation sur les fichiers; un dossier de tuiles place a la racine d'un disque est refuse.
+- Attention: l'utilisateur rapporte une perte de tout le contenu du disque en supprimant depuis Aurora un jeu dont le dossier n'existait plus (entree fantome). Cause non verifiee. Ne jamais proposer la suppression d'un jeu par le menu d'Aurora pour retirer un doublon.
 
 ## Questions ouvertes
 

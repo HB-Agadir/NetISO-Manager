@@ -54,14 +54,48 @@ class GhostEntryTests(unittest.TestCase):
 class CleanupScriptTests(unittest.TestCase):
     def test_script_deletes_exactly_the_listed_entries_and_refreshes_the_list(self):
         text = netiso_console.cleanup_script(
-            [99, 113], "Retire les tuiles", 'Retirer 2 entrée(s) "NetISO" ?', "Terminé").decode("ascii")
+            [99, 113], BS + "NetISO", "Retire les tuiles", 'Retirer 2 entrée(s) "NetISO" ?',
+            "Terminé").decode("ascii")
         self.assertIn('scriptPermissions = { "sql" }', text)
-        self.assertIn('Sql.Execute("DELETE FROM ContentItems WHERE Id IN (99,113)");', text)
-        self.assertIn('Sql.Execute("DELETE FROM Config.UserRecentGames WHERE ContentId IN (99,113)");', text)
         self.assertIn("Script.RefreshListOnExit(true);", text)
         self.assertIn("Retirer 2 entree(s) 'NetISO' ?", text)
         self.assertEqual(text.count("DELETE FROM"), 5)
-        self.assertNotIn("DROP", text.upper())
+        for line in text.splitlines():
+            if "DELETE FROM" in line:
+                self.assertIn("Id IN (99,113)", line)
+                self.assertIn("lower(substr(Directory, 1, 8)) = '" + (BS * 2 + "netiso" + BS * 2) + "'", line)
+
+    def test_script_holds_no_file_operation_and_no_broad_statement(self):
+        text = netiso_console.cleanup_script([5], BS + "NetISO", "t", "q", "d").decode("ascii")
+        for forbidden in ("FileSystem", "Delete(", "DROP", "filesystem", "Kernel", "http"):
+            self.assertNotIn(forbidden, text)
+
+    def test_generated_statements_only_remove_the_named_tile_entries(self):
+        """Runs the script's SQL against a copy of the database, as Aurora would."""
+        import re
+        text = netiso_console.cleanup_script([11, 99, 113], BS + "NetISO", "t", "q", "d").decode("ascii")
+        db = sqlite3.connect(":memory:")
+        db.execute("ATTACH DATABASE ':memory:' AS Config")
+        db.execute("CREATE TABLE ContentItems (Id INTEGER PRIMARY KEY, Directory TEXT)")
+        db.executemany("INSERT INTO ContentItems VALUES (?, ?)", [
+            (11, BS + "Games" + BS + "Pure Football"), (40, BS + "NetISO" + BS + "Binary Domain"),
+            (99, BS + "NetISO" + BS + "Old Tile"), (113, BS + "netiso" + BS + "Other Old Tile")])
+        for table in netiso_console.CONTENT_REFERENCES:
+            db.execute("CREATE TABLE Config.%s (Id INTEGER PRIMARY KEY, ContentId INTEGER)" % table)
+            db.executemany("INSERT INTO Config.%s (ContentId) VALUES (?)" % table,
+                           [(11,), (40,), (99,)])
+        for statement in re.findall(r'Sql\.Execute\("(.*)"\);', text):
+            db.execute(statement.replace(BS * 2, BS))
+        self.assertEqual([r[0] for r in db.execute("SELECT Id FROM ContentItems ORDER BY Id")], [11, 40])
+        for table in netiso_console.CONTENT_REFERENCES:
+            self.assertEqual([r[0] for r in db.execute(
+                "SELECT ContentId FROM Config.%s ORDER BY ContentId" % table)], [11, 40])
+
+    def test_a_drive_root_is_refused_as_tiles_folder(self):
+        for bad in ("/Hdd1", "/", "Hdd1"):
+            with self.assertRaises(netiso_console.ConsoleError):
+                netiso_console.tiles_scan_path(bad)
+        self.assertEqual(netiso_console.tiles_scan_path("/Hdd1/NetISO"), BS + "NetISO")
 
 
 if __name__ == "__main__":

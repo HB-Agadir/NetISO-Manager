@@ -235,6 +235,7 @@ def sync(settings, tiles, stub, log):
     tile) or "netiso" (tile sent).
     """
     remote_root = "/" + settings["remote_root"].strip("/")
+    tiles_scan_path(remote_root)  # refuses a drive root: tiles need a folder of their own
     drives = sorted({f.strip("/").split("/")[0] for f in settings["console_game_folders"]
                      if f.strip("/")} | {remote_root.strip("/").split("/")[0]})
     ftp = connect(settings["console_ip"], settings["ftp_user"], settings["ftp_password"])
@@ -272,7 +273,7 @@ def ghost_entries(content_db, settings_db, remote_root, existing):
     the scan path of our tiles folder are considered: the user's own games
     are never touched. Returns [(Id, Directory)].
     """
-    path = "\\" + "\\".join(remote_root.strip("/").split("/")[1:])
+    path = tiles_scan_path(remote_root)
     existing = {name.lower() for name in existing}
     settings = sqlite3.connect(settings_db)
     try:
@@ -303,13 +304,27 @@ def _ascii(text):
     return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
 
 
-def cleanup_script(ghost_ids, title, question, done):
+def tiles_scan_path(remote_root):
+    """Path of the tiles folder as Aurora stores it: /Hdd1/NetISO -> \\NetISO."""
+    parts = [part for part in remote_root.strip("/").split("/") if part]
+    if len(parts) < 2:
+        raise ConsoleError(tr("bad_tiles_folder", path=remote_root))
+    return "\\" + "\\".join(parts[1:])
+
+
+def cleanup_script(ghost_ids, scan_path, title, question, done):
     """Lua utility script that removes the given entries from Aurora's list.
 
     Aurora keeps its database locked while it runs, so the removal has to be
-    done by Aurora itself. The script only names the entries to delete.
+    done by Aurora itself. The script edits Aurora's list only: it holds no
+    file operation at all. Every deletion names its entries one by one and is
+    further limited to entries located under the tiles folder.
     """
-    ids = ",".join(str(i) for i in ghost_ids)
+    ids = ",".join(str(int(i)) for i in ghost_ids)
+    prefix = (scan_path + "\\").lower()
+    if not re.fullmatch(r"[a-z0-9 _\-\\]+", prefix):
+        raise ConsoleError(tr("bad_tiles_folder", path=scan_path))
+    under_tiles = "lower(substr(Directory, 1, %d)) = '%s'" % (len(prefix), prefix.replace("\\", "\\\\"))
     lines = [
         'scriptTitle = "NetISO Cleanup"',
         'scriptAuthor = "NetISO Manager"',
@@ -323,10 +338,12 @@ def cleanup_script(ghost_ids, title, question, done):
         '\tif answer.Button ~= 1 then',
         '\t\treturn;',
         '\tend',
-        '\tSql.Execute("DELETE FROM ContentItems WHERE Id IN (%s)");' % ids,
     ]
-    lines += ['\tSql.Execute("DELETE FROM Config.%s WHERE ContentId IN (%s)");' % (table, ids)
+    # References first, while the entries they point at can still be checked.
+    lines += ['\tSql.Execute("DELETE FROM Config.%s WHERE ContentId IN (SELECT Id FROM ContentItems '
+              'WHERE Id IN (%s) AND %s)");' % (table, ids, under_tiles)
               for table in CONTENT_REFERENCES]
+    lines += ['\tSql.Execute("DELETE FROM ContentItems WHERE Id IN (%s) AND %s");' % (ids, under_tiles)]
     lines += [
         '\tScript.RefreshListOnExit(true);',
         '\tScript.ShowMessageBox("NetISO Cleanup", "%s", "OK");' % _ascii(done).replace('"', "'"),
@@ -362,7 +379,8 @@ def prepare_cleanup(ftp, remote_root, log):
             os.remove(os.path.join(folder, name))
         os.rmdir(folder)
     if ghosts:
-        script = cleanup_script([g[0] for g in ghosts], tr("cleanup_description"),
+        script = cleanup_script([g[0] for g in ghosts], tiles_scan_path(remote_root),
+                                tr("cleanup_description"),
                                 tr("cleanup_question", count=len(ghosts)), tr("cleanup_done"))
         _ensure_dir(ftp, CLEANUP_SCRIPT_DIR)
         write_file(ftp, CLEANUP_SCRIPT_DIR + "/Main.lua", script)

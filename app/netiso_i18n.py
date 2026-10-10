@@ -210,6 +210,10 @@ _TEXTS = {
     "ini_updated": ("{path} mis à jour (copie : launch.ini.netiso.bak)",
                     "{path} updated (backup: launch.ini.netiso.bak)",
                     "تم تحديث {path} (نسخة احتياطية: launch.ini.netiso.bak)"),
+    "bad_tiles_folder": ("dossier des tuiles invalide : {path}. Indiquez un dossier dédié, par "
+                         "exemple /Hdd1/NetISO.",
+                         "invalid tiles folder: {path}. Use a dedicated folder such as /Hdd1/NetISO.",
+                         "مجلد الاختصارات غير صالح: {path}. استخدم مجلدا خاصا مثل /Hdd1/NetISO."),
     "cleanup_description": ("Retire de la liste d'Aurora les tuiles NetISO qui n'existent plus",
                             "Removes NetISO tiles that no longer exist from Aurora's list",
                             "Removes NetISO tiles that no longer exist from Aurora's list"),
