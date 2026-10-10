@@ -90,6 +90,19 @@ _TEXTS = {
     "server_stop": ("Arrêter le serveur", "Stop server", "إيقاف الخادم"),
     "log_frame": ("Journal", "Log", "السجل"),
     "choose_folder": ("Choisir un dossier d'ISO", "Choose an ISO folder", "اختر مجلد ملفات ISO"),
+    "support_link": ("♥ Soutenir le projet", "♥ Support the project", "♥ ادعم المشروع"),
+    "welcome": (
+        "Bienvenue dans NetISO Manager.\n\n"
+        "Cette application est gratuite et le restera. Si elle vous est utile, vous pouvez "
+        "soutenir son développement par un don, à tout moment, avec le lien « Soutenir le "
+        "projet » en haut de la fenêtre.\n\nOuvrir la page de don maintenant ?",
+        "Welcome to NetISO Manager.\n\n"
+        "This application is free and will stay free. If you find it useful, you can support "
+        "its development with a donation, at any time, with the \"Support the project\" link "
+        "at the top of the window.\n\nOpen the donation page now?",
+        "مرحبا بك في NetISO Manager.\n\n"
+        "هذا البرنامج مجاني وسيبقى مجانيا. إذا كان مفيدا لك، يمكنك دعم تطويره بتبرع في أي وقت "
+        "عبر رابط «ادعم المشروع» أعلى النافذة.\n\nهل تريد فتح صفحة التبرع الآن؟"),
     # dialogs
     "need_ip": ("Indiquez l'adresse IP de la console.", "Enter the console's IP address.",
                 "أدخل عنوان IP للجهاز."),

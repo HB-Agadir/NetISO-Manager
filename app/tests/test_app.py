@@ -86,7 +86,9 @@ class WindowTests(unittest.TestCase):
         loader.exec_module(self.manager)
         self.manager.SETTINGS_PATH = os.path.join(self.dir.name, "settings.json")
         self.manager.save_settings(dict(self.manager.DEFAULTS, folders=[self.isos],
-                                        autostart_server=False))
+                                        autostart_server=False, welcome_shown=True))
+        self.opened = []
+        self.manager.webbrowser.open = self.opened.append
         self.addCleanup(netiso_i18n.set_language, "fr")
         self.app = self.manager.App()
         self.addCleanup(self.app.destroy)
@@ -103,6 +105,22 @@ class WindowTests(unittest.TestCase):
 
     def rows(self):
         return [self.app.tree.item(i, "values") for i in self.app.tree.get_children()]
+
+    def test_support_link_opens_the_donation_page(self):
+        self.app._open_donation_page()
+        self.assertEqual(self.opened, ["https://ko-fi.com/x360remap"])
+
+    def test_welcome_is_shown_once_and_opens_the_page_only_on_yes(self):
+        answers = [False, True]
+        asked = []
+        self.manager.messagebox.askyesno = lambda title, text: (asked.append(text), answers.pop(0))[1]
+        self.app.settings["welcome_shown"] = False
+        self.app._welcome()
+        self.assertEqual(self.opened, [])
+        self.assertTrue(self.manager.load_settings()["welcome_shown"])
+        self.app._welcome()
+        self.assertEqual(len(self.opened), 1)
+        self.assertEqual(len(asked), 2)
 
     def test_lists_the_games_of_the_folder(self):
         self.assertEqual([r[0] for r in self.rows()], ["First Game"])

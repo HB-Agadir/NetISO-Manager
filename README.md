@@ -76,6 +76,10 @@ python app/tests/test_core.py
 python app/tests/test_app.py
 ```
 
+## Soutenir le projet
+
+NetISO Manager est gratuit et le restera. S'il vous est utile, vous pouvez soutenir son developpement: https://ko-fi.com/x360remap
+
 ## Credits
 
 - cOz pour le plugin NetISO et DashLaunch.

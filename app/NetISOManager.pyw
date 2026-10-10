@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 import tkinter as tk
+import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
 import netiso_console
@@ -23,6 +24,7 @@ SCRIPT_PATH = os.path.abspath(__file__)
 STUB_PATH = os.path.join(APP_DIR, "stub.xex")
 SETTINGS_PATH = os.path.join(os.environ.get("APPDATA", APP_DIR), "NetISOManager", "settings.json")
 TRACE_PATH = os.path.join(os.path.dirname(SETTINGS_PATH), "server_trace.log")
+DONATION_URL = "https://ko-fi.com/x360remap"
 WATCH_INTERVAL_MS = 15000
 STATUS_INTERVAL_MS = 1000
 PROMPT_NAMES_MAX = 8
@@ -37,6 +39,7 @@ DEFAULTS = {
     "remote_root": "/Hdd1/NetISO",
     "console_game_folders": ["/Hdd1/Games"],
     "autostart_server": True,
+    "welcome_shown": False,
     "active_discs": {},  # Title ID (hex) -> disc number launched by the game's tile
 }
 
@@ -98,6 +101,8 @@ class App(tk.Tk):
             self._autostart_server()
         if minimized:
             self.iconify()
+        elif not self.settings["welcome_shown"]:
+            self.after(800, self._welcome)
 
     # ---- layout
 
@@ -118,6 +123,9 @@ class App(tk.Tk):
         picker.pack(side="right")
         picker.bind("<<ComboboxSelected>>", self._change_language)
         ttk.Label(top, text=tr("language")).pack(side="right", padx=6)
+        support = ttk.Label(top, text=tr("support_link"), foreground="#b03060", cursor="hand2")
+        support.pack(side="left")
+        support.bind("<Button-1>", lambda _event: self._open_donation_page())
 
         folders = ttk.LabelFrame(body, text=tr("folders_frame"))
         folders.pack(fill="x", **pad)
@@ -229,6 +237,18 @@ class App(tk.Tk):
         self.log.see("end")
         self.log.configure(state="disabled")
         self._fill_tree()
+
+    # ---- support
+
+    def _open_donation_page(self):
+        webbrowser.open(DONATION_URL)
+
+    def _welcome(self):
+        """Shown once, at the first start: says the app is free and how to support it."""
+        self.settings["welcome_shown"] = True
+        save_settings(self._collect_settings())
+        if messagebox.askyesno("NetISO Manager", tr("welcome")):
+            self._open_donation_page()
 
     # ---- helpers
 
