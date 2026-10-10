@@ -188,6 +188,32 @@ def tile_name(title, taken):
     return name
 
 
+DISC_NUMBER = re.compile(r"dis[ck]\s*(\d+)", re.I)
+
+
+def number_discs_from_names(games):
+    """Recognises multi-disc sets whose discs do not say so themselves.
+
+    Some games ship several discs that each claim to be "disc 1 of 1". When
+    ISOs share a Title ID, all make that claim, and their file names carry
+    different disc numbers, those numbers are trusted instead.
+    """
+    by_title = {}
+    for game in games:
+        by_title.setdefault(game.title_id, []).append(game)
+    for group in by_title.values():
+        if len(group) < 2 or any(game.discs > 1 for game in group):
+            continue
+        numbers = [DISC_NUMBER.search(game.name) for game in group]
+        if not all(numbers):
+            continue
+        numbers = [int(match.group(1)) for match in numbers]
+        if len(set(numbers)) != len(numbers):
+            continue
+        for game, number in zip(group, numbers):
+            game.disc, game.discs = number, max(numbers)
+
+
 def build_tiles(games, group_discs=True):
     """Turns the ISOs into tiles.
 
@@ -195,6 +221,8 @@ def build_tiles(games, group_discs=True):
     second copy of a disc already seen (another region, a duplicate file) gets
     a tile of its own. Without it, every ISO is a tile, as in a plain list.
     """
+    if group_discs:
+        number_discs_from_names(games)
     groups, order = {}, []
     for game in games:
         grouped = group_discs and game.discs > 1

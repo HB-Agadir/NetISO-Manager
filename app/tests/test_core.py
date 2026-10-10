@@ -108,6 +108,16 @@ class TileTests(TempDirCase):
         self.assertTrue(tiles[0].multi_disc)
         self.assertFalse(tiles[1].multi_disc)
 
+    def test_discs_that_all_claim_to_be_disc_1_are_grouped_by_their_file_names(self):
+        games = [self.game("Snake V (USA) (Disc 2).iso", 0x4B4E085E),
+                 self.game("Snake V (USA) (Disc 1).iso", 0x4B4E085E),
+                 self.game("Metro 2033 (Europe).iso", 0x700),
+                 self.game("Metro 2033 (USA).iso", 0x700)]
+        tiles = netiso_iso.build_tiles(games)
+        self.assertEqual([t.name for t in tiles], ["Metro 2033", "Metro 2033 2", "Snake V"])
+        self.assertEqual([(g.disc, g.discs) for g in tiles[2].games], [(1, 2), (2, 2)])
+        self.assertTrue(tiles[2].games[1].path.endswith("(Disc 2).iso"))
+
     def test_without_grouping_every_disc_keeps_its_own_tile(self):
         games = [self.game("Big Game (USA) (Disc 1).iso", 0x500, 1, 2),
                  self.game("Big Game (USA) (Disc 2).iso", 0x500, 2, 2),
