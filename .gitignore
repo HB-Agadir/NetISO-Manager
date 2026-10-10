@@ -5,3 +5,5 @@ __pycache__/
 stub/Release Retail/
 stub/*.user
 deploy/
+build_env/
+dist/

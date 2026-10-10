@@ -21,7 +21,7 @@ Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et
 
 - Une Xbox 360 RGH ou JTAG avec DashLaunch et Aurora 0.7b.
 - Le plugin `NetISO.xex` 1.0 de cOz, charge par DashLaunch. Il n'est pas fourni ici.
-- Un PC Windows avec Python 3 (Tkinter inclus), sur le meme reseau que la console.
+- Un PC Windows sur le meme reseau que la console. La version `NetISO Manager.exe` des releases ne demande rien d'autre; pour lancer depuis les sources il faut Python 3 (Tkinter inclus).
 - Vos propres ISO, issus de jeux que vous possedez.
 
 ## Installation sur la console
@@ -39,7 +39,7 @@ Le Nova.xex modifie de la methode NetISO classique n'est pas necessaire.
 
 ## Utilisation
 
-1. Lancez `NetISO Manager.bat`.
+1. Lancez `NetISO Manager.exe` (ou `NetISO Manager.bat` depuis les sources).
 2. Ajoutez vos dossiers d'ISO.
 3. Renseignez l'adresse IP de la console et, si besoin, les identifiants FTP d'Aurora.
 4. Cliquez sur "Synchroniser avec Aurora", Aurora etant ouvert sur la console.
@@ -68,6 +68,10 @@ Les details techniques, dont les obstacles rencontres, sont dans [docs/NOTES_TEC
 ## Compiler le lanceur
 
 `app/stub.xex` est fourni compile. Pour le recompiler: Visual Studio avec le SDK Xbox 360, configuration `Release Retail | Xbox 360`, et la bibliotheque xkelib. Le chemin vers xkelib est a ajuster dans `stub/stub.vcxproj` (propriete `XkelibDir`).
+
+## Construire l'executable
+
+`build_exe.bat` cree `dist\NetISO Manager.exe` avec PyInstaller.
 
 ## Tests
 
