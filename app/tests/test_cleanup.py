@@ -51,6 +51,24 @@ class GhostEntryTests(unittest.TestCase):
         self.assertEqual(self.ghosts([], root="/Hdd1/Elsewhere"), [])
 
 
+class BackupTests(unittest.TestCase):
+    def test_backup_keeps_dated_copies_and_drops_the_oldest(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for day in range(1, 13):
+                old = os.path.join(folder, "2020-01-%02d_00-00-00" % day)
+                os.mkdir(old)
+                open(os.path.join(old, "content.db"), "wb").close()
+            saved = netiso_console.save_backup(b"list", b"settings", folder)
+            with open(os.path.join(saved, "content.db"), "rb") as f:
+                self.assertEqual(f.read(), b"list")
+            with open(os.path.join(saved, "settings.db"), "rb") as f:
+                self.assertEqual(f.read(), b"settings")
+            kept = sorted(os.listdir(folder))
+            self.assertEqual(len(kept), netiso_console.BACKUPS_KEPT)
+            self.assertEqual(kept[0], "2020-01-04_00-00-00")
+            self.assertEqual(kept[-1], os.path.basename(saved))
+
+
 class CleanupScriptTests(unittest.TestCase):
     def test_script_deletes_exactly_the_listed_entries_and_refreshes_the_list(self):
         text = netiso_console.cleanup_script(

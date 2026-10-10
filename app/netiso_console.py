@@ -9,6 +9,7 @@ import re
 import sqlite3
 import struct
 import tempfile
+import time
 import unicodedata
 
 import netiso_iso
@@ -25,6 +26,9 @@ DEFAULT_PLUGIN_PATH = "Hdd:\\Apps\\NetISO.xex"
 AURORA_CONTENT_DB = "/Game/Data/Databases/content.db"
 AURORA_SETTINGS_DB = "/Game/Data/Databases/settings.db"
 CLEANUP_SCRIPT_DIR = "/Game/User/Scripts/Utility/NetISO Cleanup"
+BACKUP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "NetISOManager",
+                          "aurora_backups")
+BACKUPS_KEPT = 10
 # Tables of Aurora's settings database that point at a content entry by its Id.
 CONTENT_REFERENCES = ("UserRecentGames", "UserFavorites", "UserHidden", "TitleSettings")
 # DashLaunch device names and the drive names of Aurora's FTP server.
@@ -353,7 +357,27 @@ def cleanup_script(ghost_ids, scan_path, title, question, done):
     return "\r\n".join(lines).encode("ascii")
 
 
-def prepare_cleanup(ftp, remote_root, log):
+def save_backup(content, settings, backup_dir=None):
+    """Keeps a dated copy of Aurora's two databases on the PC; returns its folder.
+
+    Taken before every cleanup script is prepared, so the list and settings of
+    Aurora can be put back as they were. Old copies beyond the last ten go.
+    """
+    backup_dir = backup_dir or BACKUP_DIR
+    folder = os.path.join(backup_dir, time.strftime("%Y-%m-%d_%H-%M-%S"))
+    os.makedirs(folder, exist_ok=True)
+    for name, data in (("content.db", content), ("settings.db", settings)):
+        with open(os.path.join(folder, name), "wb") as f:
+            f.write(data)
+    for old in sorted(os.listdir(backup_dir))[:-BACKUPS_KEPT]:
+        old_path = os.path.join(backup_dir, old)
+        for name in os.listdir(old_path):
+            os.remove(os.path.join(old_path, name))
+        os.rmdir(old_path)
+    return folder
+
+
+def prepare_cleanup(ftp, remote_root, log, backup_dir=None):
     """Uploads a cleanup script when Aurora's list holds entries of removed tiles.
 
     Returns the number of such entries.
@@ -379,6 +403,7 @@ def prepare_cleanup(ftp, remote_root, log):
             os.remove(os.path.join(folder, name))
         os.rmdir(folder)
     if ghosts:
+        log(tr("backup_saved", path=save_backup(content, settings, backup_dir)))
         script = cleanup_script([g[0] for g in ghosts], tiles_scan_path(remote_root),
                                 tr("cleanup_description"),
                                 tr("cleanup_question", count=len(ghosts)), tr("cleanup_done"))
