@@ -1,81 +1,86 @@
 # NetISO Manager
 
-Jouez a vos ISO Xbox 360 stockes sur un PC Windows, directement depuis la liste de jeux d'Aurora, sur une console RGH/JTAG.
+English | [Francais](README.fr.md)
 
-**Gratuit et open source.** Si ce logiciel vous est utile, vous pouvez soutenir son developpement: **[ko-fi.com/x360remap](https://ko-fi.com/x360remap)**
+Play the Xbox 360 ISOs stored on your Windows PC straight from the Aurora game list, on an RGH/JTAG console.
 
-Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et son titre. Un appui sur A monte l'ISO par le reseau et demarre le jeu. Le bouton Guide et le retour a Aurora fonctionnent normalement.
+**Free and open source.** If you find it useful, you can support its development: **[ko-fi.com/x360remap](https://ko-fi.com/x360remap)**
 
-## Ce que fait l'application
+Every ISO on the PC shows up in Aurora like an installed game, with its cover and title. Press A and the ISO is mounted over the network and the game starts. The Guide button and going back to Aurora work as usual.
 
-- Choix d'un ou plusieurs dossiers d'ISO, sur n'importe quels disques du PC, sous-dossiers compris.
-- Lecture du Title ID et du Media ID dans chaque ISO (XGD2, XGD3, XISO).
-- Creation d'une tuile par jeu et envoi sur la console par le FTP d'Aurora, avec verification de chaque fichier.
-- Serveur NetISO integre, qui sert les jeux de tous les dossiers a la fois.
-- Detection automatique: quand un ISO est ajoute ou retire d'un dossier, l'application le signale et propose de le transferer vers Aurora.
-- Une seule tuile par jeu, meme s'il tient sur plusieurs disques. Le disque se choisit depuis la console, en maintenant la gachette droite (disque suivant) ou gauche (disque precedent) au lancement de la tuile, ou dans l'application.
-- Gestion des doublons: un jeu deja installe sur la console garde la priorite et ne recoit pas de tuile. Si vous le supprimez de la console, sa tuile NetISO revient a la synchronisation suivante.
-- Installation du plugin sur la console en un clic (adresse du PC et `launch.ini`).
-- Affichage du jeu en cours et du debit, demarrage avec Windows.
-- Interface en francais, anglais et arabe.
+## What it does
 
-## Prerequis
+- Pick one or more ISO folders, on any drive of the PC, subfolders included.
+- Reads the Title ID and Media ID from each ISO (XGD2, XGD3, XISO).
+- Builds one tile per game and sends it to the console over Aurora's FTP server, checking every file after upload.
+- Built-in NetISO server that serves the games of all folders at once.
+- Automatic detection: when an ISO is added to or removed from a folder, the app tells you and offers to transfer it to Aurora.
+- One tile per game, even when it spans several discs. Pick the disc from the console by holding the right trigger (next disc) or the left trigger (previous disc) as the tile starts, or pick it in the app. You can also keep one tile per disc if you prefer.
+- No duplicates: a game already installed on the console keeps priority and gets no tile. Delete it from the console and its NetISO tile comes back at the next sync.
+- Cleans up the entries Aurora keeps for tiles that are gone, without touching your games.
+- One-click plugin setup on the console (PC address and `launch.ini`, with a backup).
+- Shows the game being played and the transfer rate; can start with Windows.
+- Interface in English, French and Arabic.
 
-- Une Xbox 360 RGH ou JTAG avec DashLaunch et Aurora 0.7b.
-- Le plugin `NetISO.xex` 1.0 de cOz, charge par DashLaunch. Il n'est pas fourni ici.
-- Un PC Windows 64 bits sur le meme reseau que la console. L'installateur `NetISOManager-x64.msi` des releases contient tout, guide d'utilisation compris; pour lancer depuis les sources il faut Python 3 (Tkinter inclus).
-- Vos propres ISO, issus de jeux que vous possedez.
+## Download
 
-## Installation sur la console
+Get `NetISOManager-x64.msi` from the [releases page](https://github.com/HB-Agadir/NetISO-Manager/releases). It installs the app, the console launcher and the user guide. Windows may show an "unknown publisher" warning because the installer is not signed: click "More info", then "Run anyway".
 
-1. Copiez `NetISO.xex` sur la console, par exemple dans `Hdd1:\Apps\`.
-2. A cote, creez `NetISO.xex.txt` contenant uniquement l'adresse IP du PC. L'application affiche cette adresse dans la zone Serveur.
-3. Dans `launch.ini`, section `[Plugins]`, ajoutez le plugin sur une ligne libre:
-   ```
-   plugin4 = Hdd:\Apps\NetISO.xex
-   ```
-4. Redemarrez la console.
-5. Dans Aurora, ajoutez `Hdd1:\NetISO` aux chemins de scan des jeux, avec une profondeur d'au moins 2.
+The user guide opens from the link at the top of the app. It is also in [docs/Guide_en.html](docs/Guide_en.html) and [docs/Guide_fr.html](docs/Guide_fr.html).
 
-Le Nova.xex modifie de la methode NetISO classique n'est pas necessaire.
+## Requirements
 
-## Utilisation
+- An RGH or JTAG Xbox 360 with DashLaunch and Aurora 0.7b.
+- The `NetISO.xex` 1.0 plugin by cOz, loaded by DashLaunch. It is not included here.
+- A 64-bit Windows PC on the same network as the console, preferably wired. Running from source needs Python 3 with Tkinter.
+- Your own ISOs, from games you own.
 
-1. Installez `NetISOManager-x64.msi` puis lancez NetISO Manager depuis le Bureau (ou `NetISO Manager.bat` depuis les sources).
-2. Ajoutez vos dossiers d'ISO.
-3. Renseignez l'adresse IP de la console et, si besoin, les identifiants FTP d'Aurora.
-4. Cliquez sur "Synchroniser avec Aurora", Aurora etant ouvert sur la console.
-5. Lancez un scan dans Aurora, puis un jeu.
+## Quick start
 
-Laissez l'application ouverte pendant que vous jouez: c'est elle qui sert les ISO. PC eteint, les jeux installes sur la console fonctionnent toujours; les tuiles NetISO restent visibles mais ne se lancent pas.
+1. Install and open NetISO Manager.
+2. Add your ISO folders.
+3. Enter the console's IP address, with Aurora open on the console.
+4. Click "Install the plugin on the console" and restart the console. This is done once.
+5. Click "Sync with Aurora".
+6. In Aurora, add `Hdd1:\NetISO` to the game scan paths with a depth of at least 2, then run a scan. This is done once.
+7. Launch a game.
 
-## Fonctionnement
+Keep the app open while you play: it is the one serving the ISOs. With the PC off, games installed on the console still work; NetISO tiles stay visible but do not launch.
 
-Le plugin `NetISO.xex` sait presenter un ISO distant comme un disque dans le lecteur, mais il faut passer par le gestionnaire de fichiers pour choisir le jeu. NetISO Manager remplace cette etape:
+The modified Nova.xex of the classic NetISO method is not needed.
 
-- chaque tuile est un petit lanceur (`stub/`) qui porte le Title ID du jeu, ce qui permet a Aurora de l'identifier;
-- au lancement, il demande au plugin de monter son ISO, attend que le disque soit lisible, puis demarre le jeu;
-- le serveur integre (`app/netiso_server.py`) parle le protocole du serveur NetISO d'origine.
+### Setting the console up by hand
 
-Les details techniques, dont les obstacles rencontres, sont dans [docs/NOTES_TECHNIQUES.md](docs/NOTES_TECHNIQUES.md).
+If you would rather not use the setup button: copy `NetISO.xex` to the console (for example `Hdd1:\Apps\`), create `NetISO.xex.txt` next to it holding only the PC's IP address, and add the plugin to a free slot of the `[Plugins]` section of `launch.ini`:
 
-## Limites connues
+```
+plugin4 = Hdd:\Apps\NetISO.xex
+```
 
-- Le port TCP 4323 est impose par le plugin. Si un autre programme l'occupe (un antivirus, par exemple), le serveur ne peut pas demarrer.
-- Le debit est limite par le port Ethernet 100 Mbit/s de la console.
-- Le lanceur n'agit que sur la version 1.0 du plugin. Sur une autre version il ne modifie rien, et le bouton Guide peut alors rester inactif apres un lancement.
-- Les title updates et le changement de disque des jeux multi-disques n'ont pas encore ete valides.
-- Teste sur une seule console: Trinity, dashboard 17559, Aurora 0.7b.2.
+## How it works
 
-## Compiler le lanceur
+The `NetISO.xex` plugin can present a remote ISO as a disc in the drive, but you have to go through the file manager to choose the game. NetISO Manager replaces that step:
 
-`app/stub.xex` est fourni compile. Pour le recompiler: Visual Studio avec le SDK Xbox 360, configuration `Release Retail | Xbox 360`, et la bibliotheque xkelib. Le chemin vers xkelib est a ajuster dans `stub/stub.vcxproj` (propriete `XkelibDir`).
+- each tile is a small launcher (`stub/`) carrying the game's Title ID, which lets Aurora identify it;
+- when launched, it asks the plugin to mount its ISO, waits for the disc to be readable, then boots the game;
+- the built-in server (`app/netiso_server.py`) speaks the protocol of the original NetISO server.
 
-## Construire l'installateur
+Technical details, including the obstacles met along the way, are in [docs/NOTES_TECHNIQUES.md](docs/NOTES_TECHNIQUES.md) (in French).
 
-`build_msi.bat` cree `dist\NetISOManager-<version>-x64.msi` avec PyInstaller et WiX 5. L'installateur pose l'application dans `Program Files`, cree les raccourcis (application et guides), et ajoute une regle de pare-feu limitee a ce programme, au port TCP 4323, aux reseaux prives et au sous-reseau local. `build_exe.bat` produit a la place un executable unique, portable.
+## Known limits
 
-Le guide d'utilisation est dans `docs/` (francais et anglais).
+- TCP port 4323 is fixed by the plugin. If another program holds it (an antivirus, for instance), the server cannot start.
+- Speed is capped by the console's 100 Mbit/s Ethernet port.
+- The launcher only acts on version 1.0 of the plugin. With another version it changes nothing, and the Guide button may then stay dead after a launch.
+- The disc of a multi-disc game is chosen when the tile starts. Switching disc without leaving the game is not possible.
+- Whether title updates apply to games launched through NetISO has not been checked yet.
+- Tested on a single console: Trinity, dashboard 17559, Aurora 0.7b.2.
+
+## Building
+
+`app/stub.xex` ships prebuilt. To rebuild the launcher: Visual Studio with the Xbox 360 SDK, configuration `Release Retail | Xbox 360`, and the xkelib library. Adjust the path to xkelib in `stub/stub.vcxproj` (property `XkelibDir`).
+
+`build_msi.bat` creates `dist\NetISOManager-<version>-x64.msi` with PyInstaller and WiX 5. The installer puts the app in `Program Files`, creates the shortcuts (app and guides), and adds a firewall rule limited to this program, TCP port 4323, private networks and the local subnet. `build_exe.bat` produces a single portable executable instead.
 
 ## Tests
 
@@ -85,29 +90,29 @@ python app/tests/test_app.py
 python app/tests/test_cleanup.py
 ```
 
-## Soutenir le projet
+## Support the project
 
-NetISO Manager est gratuit et le restera. S'il vous est utile, vous pouvez soutenir son developpement par un don:
+NetISO Manager is free and will stay free. If you find it useful, you can support its development with a donation:
 
 **[ko-fi.com/x360remap](https://ko-fi.com/x360remap)**
 
-Le lien est aussi dans l'application ("Soutenir le projet", en haut de la fenetre) et dans le guide d'utilisation. Du meme auteur: [X360Remap](https://github.com/HB-Agadir/X360Remap).
+The link is also in the app ("Support the project", at the top of the window) and in the user guide. By the same author: [X360Remap](https://github.com/HB-Agadir/X360Remap).
 
-## Remerciements
+## Thanks
 
-NetISO Manager ne fait que rendre plus simple un travail que d'autres ont accompli. Sans eux, il n'existerait pas.
+NetISO Manager only makes other people's work easier to use. It would not exist without them.
 
-- **cOz**, auteur du plugin NetISO et de DashLaunch. C'est son plugin qui fait croire a la console qu'un disque est dans le lecteur: tout le reste repose dessus. Merci aussi a ceux qu'il remercie lui-meme dans son fichier d'origine: SpkLeader, Swizzy, Phoenix, vgcrepairs, Team Xecuter, RF1911 et tydye.
-- **ConfusionRS**, pour la distribution de NetISO adaptee a Aurora 0.7b, qui a fait connaitre et fonctionner cette methode sur les consoles d'aujourd'hui.
-- **tuxuser**, pour `netiso-srv`, le serveur libre dont le code a servi de reference pour le protocole.
-- **muradbu**, pour le projet `netiso`, qui a montre l'idee d'un lanceur par jeu reconnu par Aurora.
-- **Team Phoenix**, pour Aurora et son systeme de scripts, utilise ici pour nettoyer la liste des jeux.
-- **Warranty Voider (zeroKilo)** et **SaveEditors**, pour XEXLoaderWV, et l'equipe de **Ghidra**: les outils qui ont permis de comprendre comment dialoguer avec le plugin.
-- Les auteurs de **xkelib**, utilisee pour compiler le lanceur.
-- La communaute **ConsoleMods** pour sa documentation.
+- **cOz**, author of the NetISO plugin and of DashLaunch. His plugin is what makes the console believe a disc is in the drive: everything else rests on it. Thanks also to those he thanks himself in his original readme: SpkLeader, Swizzy, Phoenix, vgcrepairs, Team Xecuter, RF1911 and tydye.
+- **ConfusionRS**, for the NetISO package adapted to Aurora 0.7b, which made this method known and working on today's consoles.
+- **tuxuser**, for `netiso-srv`, the open server whose code served as the reference for the protocol.
+- **muradbu**, for the `netiso` project, which showed the idea of one launcher per game recognised by Aurora.
+- **Team Phoenix**, for Aurora and its script system, used here to clean up the game list.
+- **Warranty Voider (zeroKilo)** and **SaveEditors**, for XEXLoaderWV, and the **Ghidra** team: the tools that made it possible to understand how to talk to the plugin.
+- The authors of **xkelib**, used to build the launcher.
+- The **ConsoleMods** community, for its documentation.
 
-NetISO Manager n'est affilie a aucun d'entre eux. Le plugin `NetISO.xex` reste l'oeuvre de cOz et n'est pas redistribue ici.
+NetISO Manager is not affiliated with any of them. The `NetISO.xex` plugin remains cOz's work and is not redistributed here.
 
-## Licence
+## License
 
-NetISO Manager est distribue sous licence GNU GPL version 3: voir le fichier `LICENSE`. Vous pouvez l'utiliser, le modifier et le redistribuer, a condition de conserver cette licence et de publier vos sources.
+NetISO Manager is released under the GNU GPL version 3: see the `LICENSE` file. You may use, modify and redistribute it, provided you keep this license and publish your source.
