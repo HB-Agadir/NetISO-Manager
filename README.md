@@ -2,6 +2,8 @@
 
 Jouez a vos ISO Xbox 360 stockes sur un PC Windows, directement depuis la liste de jeux d'Aurora, sur une console RGH/JTAG.
 
+**Gratuit et open source.** Si ce logiciel vous est utile, vous pouvez soutenir son developpement: **[ko-fi.com/x360remap](https://ko-fi.com/x360remap)**
+
 Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et son titre. Un appui sur A monte l'ISO par le reseau et demarre le jeu. Le bouton Guide et le retour a Aurora fonctionnent normalement.
 
 ## Ce que fait l'application
@@ -85,10 +87,27 @@ python app/tests/test_cleanup.py
 
 ## Soutenir le projet
 
-NetISO Manager est gratuit et le restera. S'il vous est utile, vous pouvez soutenir son developpement: https://ko-fi.com/x360remap
+NetISO Manager est gratuit et le restera. S'il vous est utile, vous pouvez soutenir son developpement par un don:
 
-## Credits
+**[ko-fi.com/x360remap](https://ko-fi.com/x360remap)**
 
-- cOz pour le plugin NetISO et DashLaunch.
-- tuxuser pour `netiso-srv`, dont le code a servi de reference pour le protocole.
-- Phoenix pour Aurora.
+Le lien est aussi dans l'application ("Soutenir le projet", en haut de la fenetre) et dans le guide d'utilisation. Du meme auteur: [X360Remap](https://github.com/HB-Agadir/X360Remap).
+
+## Remerciements
+
+NetISO Manager ne fait que rendre plus simple un travail que d'autres ont accompli. Sans eux, il n'existerait pas.
+
+- **cOz**, auteur du plugin NetISO et de DashLaunch. C'est son plugin qui fait croire a la console qu'un disque est dans le lecteur: tout le reste repose dessus. Merci aussi a ceux qu'il remercie lui-meme dans son fichier d'origine: SpkLeader, Swizzy, Phoenix, vgcrepairs, Team Xecuter, RF1911 et tydye.
+- **ConfusionRS**, pour la distribution de NetISO adaptee a Aurora 0.7b, qui a fait connaitre et fonctionner cette methode sur les consoles d'aujourd'hui.
+- **tuxuser**, pour `netiso-srv`, le serveur libre dont le code a servi de reference pour le protocole.
+- **muradbu**, pour le projet `netiso`, qui a montre l'idee d'un lanceur par jeu reconnu par Aurora.
+- **Team Phoenix**, pour Aurora et son systeme de scripts, utilise ici pour nettoyer la liste des jeux.
+- **Warranty Voider (zeroKilo)** et **SaveEditors**, pour XEXLoaderWV, et l'equipe de **Ghidra**: les outils qui ont permis de comprendre comment dialoguer avec le plugin.
+- Les auteurs de **xkelib**, utilisee pour compiler le lanceur.
+- La communaute **ConsoleMods** pour sa documentation.
+
+NetISO Manager n'est affilie a aucun d'entre eux. Le plugin `NetISO.xex` reste l'oeuvre de cOz et n'est pas redistribue ici.
+
+## Licence
+
+NetISO Manager est distribue sous licence GNU GPL version 3: voir le fichier `LICENSE`. Vous pouvez l'utiliser, le modifier et le redistribuer, a condition de conserver cette licence et de publier vos sources.
