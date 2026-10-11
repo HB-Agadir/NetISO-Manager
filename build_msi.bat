@@ -5,7 +5,7 @@ rem   dotnet tool install --global wix --version 5.0.2
 rem   wix extension add -g WixToolset.Firewall.wixext/5.0.2
 setlocal
 cd /d "%~dp0"
-set VERSION=1.0.0
+set VERSION=1.1.0
 if not exist build_env\Scripts\python.exe python -m venv build_env || exit /b 1
 build_env\Scripts\python.exe -m pip install --disable-pip-version-check pyinstaller || exit /b 1
 build_env\Scripts\python.exe -m PyInstaller --noconfirm --clean --onedir --windowed ^

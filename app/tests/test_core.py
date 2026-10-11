@@ -50,10 +50,16 @@ class TempDirCase(unittest.TestCase):
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)
 
-    def game(self, filename, title_id, disc=1, discs=1):
+    def game(self, filename, title_id, disc=1, discs=1, media_id=None):
         path = os.path.join(self.dir.name, filename)
-        open(path, "wb").close()
-        return netiso_iso.Game(path, netiso_iso.clean_title(path), title_id, 0x99, disc, discs)
+        if filename.endswith(".iso"):
+            open(path, "wb").close()
+        else:
+            os.makedirs(path, exist_ok=True)
+        self.media = getattr(self, "media", 0x1000) + 1
+        # Every disc gets its own Media ID unless a test asks for the very same disc twice.
+        return netiso_iso.Game(path, netiso_iso.clean_title(path), title_id,
+                               self.media if media_id is None else media_id, disc, discs, size=0)
 
 
 class IsoTests(TempDirCase):
@@ -114,7 +120,7 @@ class TileTests(TempDirCase):
                  self.game("Metro 2033 (Europe).iso", 0x700),
                  self.game("Metro 2033 (USA).iso", 0x700)]
         tiles = netiso_iso.build_tiles(games)
-        self.assertEqual([t.name for t in tiles], ["Metro 2033", "Metro 2033 2", "Snake V"])
+        self.assertEqual([t.name for t in tiles], ["Metro 2033", "Metro 2033 (2)", "Snake V"])
         self.assertEqual([(g.disc, g.discs) for g in tiles[2].games], [(1, 2), (2, 2)])
         self.assertTrue(tiles[2].games[1].path.endswith("(Disc 2).iso"))
 
@@ -137,6 +143,23 @@ class TileTests(TempDirCase):
                  self.game("Saga (Disc 1).iso", 0x111),
                  self.game("Saga II (Disc 1).iso", 0x222)]
         self.assertEqual(len(netiso_iso.build_tiles(games)), 3)
+
+    def test_the_same_disc_as_iso_and_as_folder_gives_a_single_tile_using_the_iso(self):
+        games = [self.game("Gears (USA) extracted", 0x4D5307D5, media_id=0x77),
+                 self.game("Gears (USA).iso", 0x4D5307D5, media_id=0x77),
+                 self.game("Gears (Japan).iso", 0x4D5307D5, media_id=0x78)]
+        tiles = netiso_iso.build_tiles(games)
+        self.assertEqual([t.name for t in tiles], ["Gears", "Gears (2)"])
+        self.assertTrue(all(not g.is_folder for t in tiles for g in t.games))
+
+    def test_a_set_present_as_isos_and_as_folders_does_not_get_mixed(self):
+        games = [self.game("Saga (Disc 1).iso", 0x600, 1, 2), self.game("Saga (Disc 2).iso", 0x600, 2, 2),
+                 self.game("Saga Disc 1", 0x600, 1, 2), self.game("Saga Disc 2", 0x600, 2, 2)]
+        tiles = netiso_iso.build_tiles(games)
+        self.assertEqual([t.name for t in tiles], ["Saga", "Saga (2)"])
+        self.assertEqual([[g.is_folder for g in t.games] for t in tiles],
+                         [[False, False], [True, True]])
+        self.assertEqual([[g.disc for g in t.games] for t in tiles], [[1, 2], [1, 2]])
 
     def test_without_grouping_every_disc_keeps_its_own_tile(self):
         games = [self.game("Big Game (USA) (Disc 1).iso", 0x500, 1, 2),
@@ -162,7 +185,7 @@ class TileTests(TempDirCase):
                  self.game("Dup (Disc 1).iso", 0x800, 1, 2),
                  self.game("Dup (Disc 1) (Alt).iso", 0x800, 1, 2)]
         names = [t.name for t in netiso_iso.build_tiles(games)]
-        self.assertEqual(names, ["Dup (Disc 1)", "Dup (Disc 1) 2", "Metro 2033", "Metro 2033 2"])
+        self.assertEqual(names, ["Dup (Disc 1)", "Dup (Disc 1) (2)", "Metro 2033", "Metro 2033 (2)"])
 
     def test_discs_that_are_separate_games_keep_their_disc_tag(self):
         games = [self.game("Collection (USA) (Disc 1).iso", 0x900),
@@ -180,7 +203,7 @@ class TileTests(TempDirCase):
         files = netiso_iso.tile_files(stub, tile, "PC injoignable é")
         stamped = files["default.xex"]
         offset = netiso_iso.xex_execution_info_offset(stamped)
-        self.assertEqual(struct.unpack_from(">I", stamped, offset)[0], 0x99)
+        self.assertEqual(struct.unpack_from(">I", stamped, offset)[0], tile.media_id)
         self.assertEqual(struct.unpack_from(">I", stamped, offset + 12)[0], 0xAABBCCDD)
         hash_at = struct.unpack_from(">I", stamped, 0x10)[0] + netiso_iso.XEX_HEADER_HASH
         self.assertEqual(stamped[hash_at:hash_at + 20], netiso_iso.xex_header_hash(stamped))

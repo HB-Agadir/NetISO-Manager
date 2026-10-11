@@ -218,7 +218,7 @@ def tile_name(title, taken):
     name = name[:FATX_NAME_MAX].rstrip(" .") or "game"
     base, n = name, 2
     while name.lower() in taken:
-        suffix = " %d" % n
+        suffix = " (%d)" % n  # brackets, so a second copy does not read like a sequel
         name = base[:FATX_NAME_MAX - len(suffix)] + suffix
         n += 1
     taken.add(name.lower())
@@ -237,7 +237,8 @@ def number_discs_from_names(games):
     """
     by_title = {}
     for game in games:
-        by_title.setdefault(game.title_id, []).append(game)
+        # ISOs and folders are numbered apart: a set may exist in both forms.
+        by_title.setdefault((game.title_id, game.is_folder), []).append(game)
     for group in by_title.values():
         if len(group) < 2 or any(game.discs > 1 for game in group):
             continue
@@ -286,6 +287,20 @@ def attach_generic_discs(games):
             game.discs = max(game.discs, count)
 
 
+def drop_identical_copies(games):
+    """Keeps one copy of each disc when the PC holds the very same disc twice.
+
+    Two copies are the same disc when Title ID, Media ID and disc number all
+    match, typically an ISO and the folder it was extracted to. The ISO is
+    kept. Different editions of a game have different Media IDs and both stay.
+    """
+    kept = {}
+    for game in sorted(games, key=lambda game: game.is_folder):
+        kept.setdefault((game.title_id, game.media_id, game.console_key[1]), game)
+    chosen = set(map(id, kept.values()))
+    return [game for game in games if id(game) in chosen]
+
+
 def build_tiles(games, group_discs=True):
     """Turns the ISOs into tiles.
 
@@ -293,12 +308,13 @@ def build_tiles(games, group_discs=True):
     second copy of a disc already seen (another region, a duplicate file) gets
     a tile of its own. Without it, every ISO is a tile, as in a plain list.
     """
+    games = drop_identical_copies(games)
     if group_discs:
         number_discs_from_names(games)
     groups, order = {}, []
     for game in games:
         grouped = group_discs and game.discs > 1
-        key = (game.set_id,) if grouped else (game.set_id, id(game))
+        key = (game.set_id, game.is_folder) if grouped else (game.set_id, id(game))
         if key in groups and any(other.disc == game.disc for other in groups[key]):
             key = (game.set_id, id(game))
         if key not in groups:

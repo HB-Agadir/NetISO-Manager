@@ -114,6 +114,16 @@ A valider: le comportement des title updates (le stub porte le meme Title ID et 
 - Garde-fous: chaque `DELETE` nomme ses Id et exige en plus que `Directory` commence par le dossier des tuiles; le script ne contient aucune operation sur les fichiers; un dossier de tuiles place a la racine d'un disque est refuse.
 - Attention: l'utilisateur rapporte une perte de tout le contenu du disque en supprimant depuis Aurora un jeu dont le dossier n'existait plus (entree fantome). Cause non verifiee. Ne jamais proposer la suppression d'un jeu par le menu d'Aurora pour retirer un doublon.
 
+## Dossiers de jeu servis comme des disques (2026-10-11, version 1.1.0)
+
+- Un dossier contenant `default.xex` est un jeu au meme titre qu'un ISO. `app/netiso_xdvdfs.py` construit en memoire une partition XDVDFS (descripteur de volume au secteur 32, tables de repertoires en arbres de recherche equilibres, entrees jamais a cheval sur deux secteurs) et repond aux lectures par blocs en lisant directement les fichiers. Rien n'est converti ni copie.
+- Disposition: la partition est placee a l'offset XGD2 (0xFD90000), ou XGD3 (0x2080000) au-dela de 3 400 000 secteurs. Le plugin essaie dans l'ordre 0xFD90000, 0x2080000 puis 0 (table lue en 0x91100900).
+- Verification sur un jeu reel: ISO de Gears of War extrait (1810 fichiers, 6,69 Go), disque virtuel construit en 0,07 s, chaque fichier relu a travers le disque virtuel identique a l'original par empreinte.
+- Valide sur console: Gears of War (4D5307D5) lance depuis le dossier, ecran titre affiche.
+- Un meme disque present deux fois sur le PC (memes Title ID, Media ID et numero de disque, par exemple un ISO et son dossier extrait) ne donne qu'une tuile; l'ISO est garde. Des editions differentes (Media ID differents) restent toutes les deux, la seconde nommee `Titre (2)`.
+- Un jeu multi-disques present a la fois en ISO et en dossiers donne deux tuiles distinctes, jamais un melange.
+- Archives zip ou rar: ecartees. L'acces aleatoire dans un fichier compresse impose de decompresser ce qui precede.
+
 ## Questions ouvertes
 
 1. Title updates: s'appliquent-ils a un jeu lance par une tuile qui porte le meme Title ID et Media ID?
