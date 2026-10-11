@@ -46,6 +46,30 @@ _TEXTS = {
     "fast_read": ("Chargements rapides (environ 2 fois plus vite)", "Fast loading (about twice as fast)",
                   "تحميل سريع (أسرع بمرتين تقريبا)"),
     "start_with_windows": ("Démarrer avec Windows", "Start with Windows", "التشغيل مع Windows"),
+    "view_button": ("Voir l'écran de la console", "Show the console's screen", "عرض شاشة الجهاز"),
+    "view_title": ("Écran de la console", "Console screen", "شاشة الجهاز"),
+    "view_connecting": ("Connexion à la console...", "Connecting to the console...",
+                        "جاري الاتصال بالجهاز..."),
+    "view_status": ("{title}   ·   une image toutes les {seconds:.0f} s environ",
+                    "{title}   ·   one image about every {seconds:.0f} s",
+                    "{title}   ·   صورة كل {seconds:.0f} ثانية تقريبا"),
+    "view_in_aurora": ("Dans Aurora", "In Aurora", "في Aurora"),
+    "view_in_game": ("En jeu (Title ID {titleid})", "In game (Title ID {titleid})",
+                     "في لعبة (Title ID {titleid})"),
+    "view_unauthorized": (
+        "La console refuse l'utilisateur ou le mot de passe web d'Aurora. Vérifiez-les dans la "
+        "zone Console (réglages d'Aurora, serveur HTTP).",
+        "The console rejects Aurora's web user or password. Check them in the Console area "
+        "(Aurora settings, HTTP server).",
+        "الجهاز يرفض مستخدم أو كلمة مرور ويب Aurora. تحقق منهما في منطقة الجهاز "
+        "(إعدادات Aurora، خادم HTTP)."),
+    "view_unreachable": (
+        "Console injoignable ({error}). Elle doit être allumée, avec le serveur HTTP activé dans "
+        "les réglages d'Aurora. Nouvel essai...",
+        "Console not reachable ({error}). It must be on, with the HTTP server enabled in "
+        "Aurora's settings. Retrying...",
+        "تعذر الوصول إلى الجهاز ({error}). يجب أن يكون مشغلا مع تفعيل خادم HTTP في إعدادات "
+        "Aurora. إعادة المحاولة..."),
     "setup_button": ("Installer le plugin sur la console", "Install the plugin on the console",
                      "تثبيت الإضافة على الجهاز"),
     "setup_confirm": (

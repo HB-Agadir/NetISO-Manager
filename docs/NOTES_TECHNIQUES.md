@@ -137,7 +137,10 @@ A valider: le comportement des title updates (le stub porte le meme Title ID et 
 ## Serveur web d'Aurora (piste pour une vue de la console)
 
 - Aurora (module Nova) ecoute en HTTP sur le port 9999. Routes relevees dans son interface web: `POST /authenticate` (champs `username`, `password`, reponse `token`, ensuite en-tete `Authorization: Bearer`), `/screencapture/meta`, `/screencapture/meta/list`, `/image/screencapture?uuid=`, `/title`, `POST /title/launch`, `/system`, `/dashlaunch`, `/plugin`, `/multidisc`, `/temperature`, `/smc`, `/thread`.
-- Sur la console de test l'acces est protege (`X-Security-Enabled: 1`). Non essaye avec identifiants.
+- Identifiants d'origine d'Aurora: `xboxhttp` / `xboxhttp` (le mot de passe est stocke hache dans `settings.db`, reglages `HTTPUsername`, `HttpPassword`, `HTTPSecurity`, `HTTPServerEnabled`).
+- `/screencapture/meta` prend une capture (environ 1 s) et renvoie son nom; `/image/screencapture?uuid=<nom>` la renvoie en BMP 32 bits non compresse (3,7 Mo en 1280x720, 2 a 3,5 s de telechargement); `DELETE /screencapture?uuid=<nom>` la supprime du disque de la console. Soit une image toutes les 3 s environ.
+- Realise (`app/netiso_nova.py` et fenetre `ConsoleView`): capture en boucle, conversion BMP vers PPM sans bibliotheque externe, reduction de moitie, suppression de chaque capture sur la console apres telechargement.
+- `/system` renvoie le numero de serie, la cle CPU et la cle DVD de la console: l'application ne l'appelle jamais.
 
 ## Questions ouvertes
 

@@ -96,6 +96,13 @@
 <h3>Games already installed on the console</h3>
 <p>When a game is both on the console and as an ISO on the PC, only the console copy shows up: no duplicate. If you delete the game from the console to free space, click "Sync with Aurora": it comes back, played from the PC this time.</p>
 
+<h3>Seeing the console's screen from the PC</h3>
+<p>During setup you do not need to switch HDMI inputs or look at the TV. Click <b>"Show the console's screen"</b> in area 3: a window shows what the console displays, with a new image about every three seconds. It is a help to follow the steps, not a video: you still need the controller to move around Aurora.</p>
+<p>This uses Aurora's web server. If it asks for a user and password, they are the ones in Aurora's settings, under HTTP server (<code>xboxhttp</code> / <code>xboxhttp</code> by default).</p>
+
+<h3>Fast loading</h3>
+<p>"Fast loading" is ticked by default: games load about twice as fast. If a game misbehaves, untick it, click "Sync with Aurora", then restart the console.</p>
+
 <h3>Set and forget</h3>
 <p>Tick "Start the server when the app opens" and "Start with Windows". The software then starts with your PC, minimized.</p>
 
@@ -123,7 +130,8 @@
   <tr><td>The games do not show up in Aurora</td><td>Redo step 5 and run a scan again.</td></tr>
   <tr><td>A game shows up without a cover</td><td>Aurora downloads covers itself when the console has Internet access. Some install or add-on discs have no cover.</td></tr>
   <tr><td>An ISO is marked "Skipped" in the log</td><td>The file is not a valid Xbox 360 ISO, or it is still being copied.</td></tr>
-  <tr><td>Slow loading or stutter</td><td>Use an Ethernet cable instead of Wi-Fi. The console tops out at about 11 MB per second.</td></tr>
+  <tr><td>Slow loading or stutter</td><td>Use an Ethernet cable instead of Wi-Fi, and keep "Fast loading" ticked.</td></tr>
+  <tr><td>The "Console screen" window stays empty</td><td>Aurora must be open, with its HTTP server enabled in its settings. Also check the web user and password in area 3.</td></tr>
 </table>
 
 <div class="note"><b>Antivirus.</b> NetISO Manager sends nothing to the Internet: it only talks to your console, on your own network. If your antivirus asks, allow it on the private network.</div>

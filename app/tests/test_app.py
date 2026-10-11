@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import tempfile
+import threading
 import time
 import unittest
 
@@ -143,6 +144,41 @@ class WindowTests(unittest.TestCase):
 
     def test_a_fresh_install_starts_in_english(self):
         self.assertEqual(self.manager.DEFAULTS["language"], "en")
+
+    def test_console_view_shows_captures_and_reports_a_refused_login(self):
+        from test_nova import colour, make_bmp
+        import netiso_nova
+
+        refuse = threading.Event()
+
+        class FakeClient:
+            def __init__(self, *args):
+                pass
+
+            def capture(self):
+                time.sleep(0.05)  # the real console takes seconds per capture
+                if refuse.is_set():
+                    raise netiso_nova.Unauthorized("401")
+                return make_bmp(8, 6, 32, colour)
+
+            def title(self):
+                return {"titleid": "0x4D5307D5"}
+
+        self.manager.netiso_nova.NovaClient = FakeClient
+        self.addCleanup(setattr, self.manager.netiso_nova, "NovaClient", netiso_nova.NovaClient)
+        self.manager.ConsoleView.RETRY_SECONDS = 0.05
+        self.app.console_ip.set("192.0.2.1")
+        self.app._open_view()
+        view = self.app.view
+        self.pump(lambda: view.photo is not None)
+        self.assertEqual((view.photo.width(), view.photo.height()), (8, 6))
+        self.assertIn("4D5307D5", view.status.get())
+        refuse.set()
+        self.pump(lambda: "mot de passe" in view.status.get())
+        self.app._open_view()
+        self.assertIs(self.app.view, view, "a second click must reuse the open window")
+        view.close()
+        self.assertIsNone(self.app.view)
 
     def test_lists_the_games_of_the_folder(self):
         self.assertEqual([r[0] for r in self.rows()], ["First Game"])

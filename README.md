@@ -20,6 +20,8 @@ Every ISO on the PC shows up in Aurora like an installed game, with its cover an
 - No duplicates: a game already installed on the console keeps priority and gets no tile. Delete it from the console and its NetISO tile comes back at the next sync.
 - Cleans up the entries Aurora keeps for tiles that are gone, without touching your games.
 - One-click plugin setup on the console (PC address and `launch.ini`, with a backup).
+- Fast loading: about twice the read speed of the stock NetISO setup (8.9 MB/s measured against 4.1).
+- Shows the console's screen in a window on the PC, so you can follow the setup without switching HDMI inputs.
 - Shows the game being played and the transfer rate; can start with Windows.
 - Interface in English, French and Arabic.
 
@@ -71,7 +73,8 @@ Technical details, including the obstacles met along the way, are in [docs/NOTES
 ## Known limits
 
 - TCP port 4323 is fixed by the plugin. If another program holds it (an antivirus, for instance), the server cannot start.
-- Speed is capped by the console's 100 Mbit/s Ethernet port.
+- Speed is capped by the console's 100 Mbit/s Ethernet port. Fast loading reaches about 8.9 MB/s.
+- The console screen window shows one image about every three seconds. It is a setup aid, not a video stream.
 - The launcher only acts on version 1.0 of the plugin. With another version it changes nothing, and the Guide button may then stay dead after a launch.
 - The disc of a multi-disc game is chosen when the tile starts. Switching disc without leaving the game is not possible.
 - Whether title updates apply to games launched through NetISO has not been checked yet.
@@ -90,6 +93,7 @@ python app/tests/test_core.py
 python app/tests/test_app.py
 python app/tests/test_cleanup.py
 python app/tests/test_folders.py
+python app/tests/test_nova.py
 ```
 
 ## Support the project

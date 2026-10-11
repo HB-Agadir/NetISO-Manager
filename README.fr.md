@@ -19,6 +19,8 @@ Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et
 - Une seule tuile par jeu, meme s'il tient sur plusieurs disques. Le disque se choisit depuis la console, en maintenant la gachette droite (disque suivant) ou gauche (disque precedent) au lancement de la tuile, ou dans l'application.
 - Gestion des doublons: un jeu deja installe sur la console garde la priorite et ne recoit pas de tuile. Si vous le supprimez de la console, sa tuile NetISO revient a la synchronisation suivante.
 - Installation du plugin sur la console en un clic (adresse du PC et `launch.ini`).
+- Chargements rapides: environ deux fois le debit de NetISO d'origine (8,9 Mo/s mesures contre 4,1).
+- Affichage de l'ecran de la console dans une fenetre du PC, pour suivre l'installation sans changer d'entree HDMI.
 - Affichage du jeu en cours et du debit, demarrage avec Windows.
 - Interface en francais, anglais et arabe.
 
@@ -65,7 +67,8 @@ Les details techniques, dont les obstacles rencontres, sont dans [docs/NOTES_TEC
 ## Limites connues
 
 - Le port TCP 4323 est impose par le plugin. Si un autre programme l'occupe (un antivirus, par exemple), le serveur ne peut pas demarrer.
-- Le debit est limite par le port Ethernet 100 Mbit/s de la console.
+- Le debit est limite par le port Ethernet 100 Mbit/s de la console. Les chargements rapides atteignent environ 8,9 Mo/s.
+- La fenetre d'ecran de la console affiche une image toutes les trois secondes environ. C'est une aide a l'installation, pas un flux video.
 - Le lanceur n'agit que sur la version 1.0 du plugin. Sur une autre version il ne modifie rien, et le bouton Guide peut alors rester inactif apres un lancement.
 - Le disque d'un jeu multi-disques se choisit au lancement de la tuile. Changer de disque sans quitter le jeu n'est pas possible.
 - L'application des title updates aux jeux lances par NetISO n'a pas encore ete verifiee.
@@ -88,6 +91,7 @@ python app/tests/test_core.py
 python app/tests/test_app.py
 python app/tests/test_cleanup.py
 python app/tests/test_folders.py
+python app/tests/test_nova.py
 ```
 
 ## Soutenir le projet

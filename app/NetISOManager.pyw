@@ -14,6 +14,7 @@ from tkinter import filedialog, messagebox, ttk
 import netiso_console
 import netiso_i18n
 import netiso_iso
+import netiso_nova
 import netiso_server
 import netiso_winstart
 from netiso_i18n import tr
@@ -41,8 +42,8 @@ DEFAULTS = {
     "ftp_user": "xboxftp",
     "ftp_password": "xboxftp",
     "remote_root": "/Hdd1/NetISO",
-    "http_user": "",
-    "http_password": "",
+    "http_user": "xboxhttp",      # Aurora's factory web login, like xboxftp for FTP
+    "http_password": "xboxhttp",
     "console_game_folders": ["/Hdd1/Games"],
     "autostart_server": True,
     "welcome_shown": False,
@@ -57,6 +58,9 @@ def load_settings():
             settings.update(json.load(f))
     except (OSError, ValueError):
         pass
+    for key in ("ftp_user", "ftp_password", "http_user", "http_password"):
+        if not settings.get(key):
+            settings[key] = DEFAULTS[key]  # a login left blank means Aurora's factory one
     return settings
 
 
@@ -78,12 +82,77 @@ def local_ip(toward):
         probe.close()
 
 
+class ConsoleView(tk.Toplevel):
+    """Window showing what is on the console's screen, refreshed as fast as Aurora allows.
+
+    Aurora takes about a second per screenshot and sends it uncompressed, so
+    this is a picture every few seconds: enough to follow a setup from the PC,
+    not a video.
+    """
+
+    RETRY_SECONDS = 5
+
+    def __init__(self, app, settings):
+        super().__init__(app)
+        self.title(tr("view_title"))
+        self.app = app
+        self.open = True
+        self.photo = None
+        self.client = netiso_nova.NovaClient(
+            settings["console_ip"], settings["http_user"], settings["http_password"])
+        self.picture = ttk.Label(self, anchor="center")
+        self.picture.pack(fill="both", expand=True)
+        self.status = tk.StringVar(value=tr("view_connecting"))
+        ttk.Label(self, textvariable=self.status, wraplength=620, justify="left").pack(
+            fill="x", padx=8, pady=6)
+        self.geometry("660x420")
+        self.protocol("WM_DELETE_WINDOW", self.close)
+        threading.Thread(target=self._loop, daemon=True).start()
+
+    def _loop(self):
+        """Worker thread: captures until the window is closed; every result goes to the main thread."""
+        while self.open:
+            started = time.time()
+            try:
+                bmp = self.client.capture()
+                info = self.client.title()
+                width = netiso_nova.struct.unpack_from("<i", bmp, 18)[0]
+                image = netiso_nova.bmp_to_ppm(bmp, 2 if width > 800 else 1)
+                self.app.events.put(("view", (self, image, info, time.time() - started)))
+            except netiso_nova.Unauthorized:
+                self.app.events.put(("view", (self, None, tr("view_unauthorized"), 0)))
+                time.sleep(self.RETRY_SECONDS)
+            except (netiso_nova.NovaError, KeyError, ValueError, netiso_nova.struct.error) as error:
+                self.app.events.put(("view", (self, None, tr("view_unreachable", error=error), 0)))
+                time.sleep(self.RETRY_SECONDS)
+
+    def show(self, image, info, seconds):
+        """Main thread: displays a capture, or the reason there is none."""
+        if not self.open:
+            return
+        if image is None:
+            self.status.set(info)
+            return
+        _width, _height, ppm = image
+        self.photo = tk.PhotoImage(data=ppm)  # kept on self: Tk drops an image nobody holds
+        self.picture.configure(image=self.photo)
+        title_id = str(info.get("titleid", ""))
+        where = (tr("view_in_aurora") if title_id in ("", "0x00000000")
+                 else tr("view_in_game", titleid=title_id.replace("0x", "")))
+        self.status.set(tr("view_status", title=where, seconds=seconds))
+
+    def close(self):
+        self.open = False
+        self.app.view = None
+        self.destroy()
+
+
 class App(tk.Tk):
     def __init__(self, minimized=False):
         super().__init__()
         self.title("NetISO Manager")
-        self.geometry("1040x820")
-        self.minsize(900, 700)
+        self.geometry("1040x860")
+        self.minsize(900, 740)
         self.settings = load_settings()
         netiso_i18n.set_language(self.settings["language"])
         self.tiles = []
@@ -95,6 +164,7 @@ class App(tk.Tk):
         self.last_seen = None    # {path: size} at the previous watch poll
         self.prompt_next_scan = False
         self.last_bytes = 0
+        self.view = None
 
         self._build()
         self.protocol("WM_DELETE_WINDOW", self._close)
@@ -206,7 +276,9 @@ class App(tk.Tk):
         ttk.Checkbutton(console, text=tr("fast_read"), variable=self.fast_read).grid(
             row=7, column=0, columnspan=2, sticky="w", padx=8)
         self.setup_button = ttk.Button(console, text=tr("setup_button"), command=self._setup)
-        self.setup_button.grid(row=9, column=0, columnspan=2, sticky="we", padx=8, pady=(2, 8))
+        self.setup_button.grid(row=9, column=0, columnspan=2, sticky="we", padx=8, pady=2)
+        ttk.Button(console, text=tr("view_button"), command=self._open_view).grid(
+            row=10, column=0, columnspan=2, sticky="we", padx=8, pady=(2, 8))
         if self.busy:
             self.push_button.configure(state="disabled")
             self.setup_button.configure(state="disabled")
@@ -324,6 +396,10 @@ class App(tk.Tk):
                         self.states = states
                         self._fill_tree()
                     self._log(message)
+                elif kind == "view":
+                    view, image, info, seconds = payload
+                    if view is self.view:
+                        view.show(image, info, seconds)
                 elif kind == "setup":
                     self._set_busy(False)
                     self._setup_finished(payload)
@@ -504,6 +580,14 @@ class App(tk.Tk):
             return None
         return dict(settings)
 
+    def _open_view(self):
+        if self.view is not None:
+            self.view.lift()
+            return
+        settings = self._console_settings()
+        if settings is not None:
+            self.view = ConsoleView(self, settings)
+
     def _push(self):
         if self.busy:
             return
@@ -628,6 +712,8 @@ class App(tk.Tk):
 
     def _close(self):
         save_settings(self._collect_settings())
+        if self.view is not None:
+            self.view.close()
         self.server.stop()
         self.destroy()
 

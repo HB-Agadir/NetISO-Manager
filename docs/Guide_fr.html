@@ -96,6 +96,13 @@
 <h3>Jeux déjà installés sur la console</h3>
 <p>Si un jeu est à la fois sur la console et en ISO sur le PC, seule la version de la console apparaît : pas de doublon. Si vous supprimez le jeu de la console pour gagner de la place, cliquez sur « Synchroniser avec Aurora » : il réapparaît, joué cette fois depuis le PC.</p>
 
+<h3>Voir l'écran de la console depuis le PC</h3>
+<p>Pendant l'installation, vous n'avez pas besoin de changer d'entrée HDMI ni de regarder la télévision. Cliquez sur <b>« Voir l'écran de la console »</b> dans la zone 3 : une fenêtre affiche ce que montre la console, avec une nouvelle image toutes les trois secondes environ. C'est une aide pour suivre les étapes, pas une vidéo : la manette reste nécessaire pour naviguer dans Aurora.</p>
+<p>Cette fonction utilise le serveur web d'Aurora. S'il vous demande un utilisateur et un mot de passe, ce sont ceux des réglages d'Aurora, à la rubrique du serveur HTTP (<code>xboxhttp</code> / <code>xboxhttp</code> par défaut).</p>
+
+<h3>Chargements rapides</h3>
+<p>La case « Chargements rapides » est cochée par défaut : les jeux se chargent environ deux fois plus vite. Si un jeu se comporte de façon anormale, décochez-la, cliquez sur « Synchroniser avec Aurora », puis redémarrez la console.</p>
+
 <h3>Pour ne plus y penser</h3>
 <p>Cochez « Démarrer le serveur à l'ouverture » et « Démarrer avec Windows ». Le logiciel se lance alors tout seul avec votre PC, fenêtre réduite.</p>
 
@@ -123,7 +130,8 @@
   <tr><td>Les jeux n'apparaissent pas dans Aurora</td><td>Refaites l'étape 5 et relancez un scan.</td></tr>
   <tr><td>Un jeu apparaît sans pochette</td><td>Aurora télécharge les pochettes lui-même quand la console a accès à Internet. Certains disques d'installation ou de contenu additionnel n'ont pas de pochette.</td></tr>
   <tr><td>Un ISO est marqué « Ignoré » dans le journal</td><td>Le fichier n'est pas un ISO Xbox 360 valide, ou sa copie n'est pas terminée.</td></tr>
-  <tr><td>Chargements lents ou saccades</td><td>Reliez la console par câble Ethernet plutôt qu'en Wi-Fi. Le débit maximal de la console est d'environ 11 Mo par seconde.</td></tr>
+  <tr><td>Chargements lents ou saccades</td><td>Reliez la console par câble Ethernet plutôt qu'en Wi-Fi, et gardez « Chargements rapides » coché.</td></tr>
+  <tr><td>La fenêtre « Écran de la console » reste vide</td><td>Aurora doit être ouvert, avec son serveur HTTP activé dans ses réglages. Vérifiez aussi l'utilisateur et le mot de passe web dans la zone 3.</td></tr>
 </table>
 
 <div class="note"><b>Antivirus.</b> NetISO Manager n'envoie rien sur Internet : il ne communique qu'avec votre console, sur votre réseau. Si votre antivirus l'interroge, autorisez-le sur le réseau privé.</div>
