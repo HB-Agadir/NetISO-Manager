@@ -32,7 +32,7 @@ The user guide opens from the link at the top of the app. It is also in [docs/Gu
 ## Requirements
 
 - An RGH or JTAG Xbox 360 with DashLaunch and Aurora 0.7b.
-- The `NetISO.xex` 1.0 plugin by cOz, loaded by DashLaunch. It is not included here.
+- The `NetISO.xex` 1.0 plugin by cOz. It ships with NetISO Manager, unmodified, and is installed by the setup button.
 - A 64-bit Windows PC on the same network as the console, preferably wired. Running from source needs Python 3 with Tkinter.
 - Your own ISOs or game folders, from games you own.
 
@@ -52,7 +52,7 @@ The modified Nova.xex of the classic NetISO method is not needed.
 
 ### Setting the console up by hand
 
-If you would rather not use the setup button: copy `NetISO.xex` to the console (for example `Hdd1:\Apps\`), create `NetISO.xex.txt` next to it holding only the PC's IP address, and add the plugin to a free slot of the `[Plugins]` section of `launch.ini`:
+If you would rather not use the setup button: copy `app/plugin/NetISO.xex` to the console (for example `Hdd1:\Apps\`), create `NetISO.xex.txt` next to it holding only the PC's IP address, and add the plugin to a free slot of the `[Plugins]` section of `launch.ini`:
 
 ```
 plugin4 = Hdd:\Apps\NetISO.xex
@@ -113,7 +113,9 @@ NetISO Manager only makes other people's work easier to use. It would not exist 
 - The authors of **xkelib**, used to build the launcher.
 - The **ConsoleMods** community, for its documentation.
 
-NetISO Manager is not affiliated with any of them. The `NetISO.xex` plugin remains cOz's work and is not redistributed here.
+NetISO Manager is not affiliated with any of them.
+
+**About the bundled plugin.** `app/plugin/NetISO.xex` is cOz's NetISO 1.0, included exactly as he released it, together with his original readme (`app/plugin/NetISO-README-cOz.txt`). It is bundled for one reason: the launcher only works with this exact build, and asking newcomers to find the right file elsewhere was the main obstacle to getting started. It remains entirely his work. If cOz or anyone holding rights to it would rather it not be distributed here, open an issue and it will be removed.
 
 ## License
 

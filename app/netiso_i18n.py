@@ -50,17 +50,17 @@ _TEXTS = {
                      "تثبيت الإضافة على الجهاز"),
     "setup_confirm": (
         "Cette action configure la console pour NetISO :\n\n"
-        "  1. envoie NetISO.xex s'il n'y est pas ;\n"
+        "  1. installe le plugin NetISO.xex de cOz, fourni avec ce logiciel, s'il n'y est pas ;\n"
         "  2. écrit l'adresse de ce PC ({ip}) à côté du plugin ;\n"
         "  3. ajoute le plugin dans launch.ini si besoin, après en avoir fait une copie "
         "(launch.ini.netiso.bak).\n\nContinuer ?",
         "This sets the console up for NetISO:\n\n"
-        "  1. uploads NetISO.xex if it is missing;\n"
+        "  1. installs cOz's NetISO.xex plugin, shipped with this software, if it is missing;\n"
         "  2. writes this PC's address ({ip}) next to the plugin;\n"
         "  3. adds the plugin to launch.ini if needed, after saving a copy "
         "(launch.ini.netiso.bak).\n\nContinue?",
         "سيتم إعداد الجهاز لـ NetISO:\n\n"
-        "  1. إرسال NetISO.xex إذا لم يكن موجودا؛\n"
+        "  1. تثبيت إضافة NetISO.xex من cOz المرفقة مع البرنامج إذا لم تكن موجودة؛\n"
         "  2. كتابة عنوان هذا الحاسوب ({ip}) بجانب الإضافة؛\n"
         "  3. إضافة الإضافة إلى launch.ini عند الحاجة، بعد حفظ نسخة "
         "(launch.ini.netiso.bak).\n\nمتابعة؟"),
@@ -214,6 +214,15 @@ _TEXTS = {
     "plugin_missing": ("NetISO.xex absent de la console ({path})",
                        "NetISO.xex is not on the console ({path})",
                        "الملف NetISO.xex غير موجود على الجهاز ({path})"),
+    "plugin_other_version": (
+        "Attention : {path} n'est pas la version 1.0 de NetISO.xex fournie avec NetISO Manager. "
+        "Les jeux se lanceront, mais le bouton Guide et les chargements rapides peuvent ne pas "
+        "fonctionner. Supprimez ce fichier de la console puis relancez l'installation.",
+        "Warning: {path} is not the NetISO.xex 1.0 shipped with NetISO Manager. Games will "
+        "launch, but the Guide button and fast loading may not work. Delete that file from the "
+        "console, then run the installation again.",
+        "تنبيه: {path} ليس نسخة NetISO.xex 1.0 المرفقة مع NetISO Manager. ستعمل الألعاب، لكن زر "
+        "Guide والتحميل السريع قد لا يعملان. احذف هذا الملف من الجهاز ثم أعد التثبيت."),
     "plugin_uploaded": ("Plugin envoyé : {path}", "Plugin uploaded: {path}",
                         "تم إرسال الإضافة: {path}"),
     "address_written": ("Adresse du PC {ip} écrite dans {path}", "PC address {ip} written to {path}",

@@ -8,6 +8,7 @@ import os
 import re
 import sqlite3
 import struct
+import sys
 import tempfile
 import time
 import unicodedata
@@ -31,6 +32,9 @@ BACKUP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "N
 BACKUPS_KEPT = 10
 # Tables of Aurora's settings database that point at a content entry by its Id.
 CONTENT_REFERENCES = ("UserRecentGames", "UserFavorites", "UserHidden", "TitleSettings")
+# NetISO.xex 1.0 by cOz, shipped unmodified with the app. The launcher only
+# knows this exact build: it checks the instructions it changes before touching them.
+PLUGIN_SHA256 = "3672c88a7a3542746bd43db0f400a6eb4c0b2ca41aa382c4188e02526e8012ea"
 # DashLaunch device names and the drive names of Aurora's FTP server.
 DEVICES = (("Hdd:", "/Hdd1"), ("Usb:", "/Usb0"))
 
@@ -454,12 +458,24 @@ def plan_launch_ini(text, plugin_path=DEFAULT_PLUGIN_PATH):
     return plugin_path, "".join(lines)
 
 
+def bundled_plugin():
+    """Path of the NetISO.xex shipped with the app, or None."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(base, "plugin", "NetISO.xex")
+    return path if os.path.isfile(path) else None
+
+
+def is_known_plugin(data):
+    return hashlib.sha256(data).hexdigest() == PLUGIN_SHA256
+
+
 def setup_console(settings, pc_ip, plugin_file, log):
     """Makes the console load NetISO.xex and point it at this PC.
 
-    Uploads the plugin when it is missing (plugin_file is the local copy),
-    writes the PC address next to it, and registers the plugin in launch.ini
-    after saving a backup. Returns True when launch.ini was changed.
+    Uploads the plugin when it is missing (the copy shipped with the app, or
+    plugin_file when given), writes the PC address next to it, and registers
+    the plugin in launch.ini after saving a backup. A plugin already on the
+    console is left in place. Returns True when launch.ini was changed.
     """
     ftp = connect(settings["console_ip"], settings["ftp_user"], settings["ftp_password"])
     try:
@@ -476,6 +492,7 @@ def setup_console(settings, pc_ip, plugin_file, log):
         folder, filename = plugin_path.rsplit("/", 1)
         present = {n.lower() for n, d in list_dir(ftp, folder) if not d}
         if filename.lower() not in present:
+            plugin_file = plugin_file or bundled_plugin()
             if not plugin_file:
                 raise PluginMissing(tr("plugin_missing", path=plugin_ini_path))
             with open(plugin_file, "rb") as f:
@@ -483,6 +500,10 @@ def setup_console(settings, pc_ip, plugin_file, log):
             _ensure_dir(ftp, folder)
             write_file(ftp, plugin_path, data)
             log(tr("plugin_uploaded", path=plugin_ini_path))
+        else:
+            data = read_file(ftp, plugin_path) or b""
+        if not is_known_plugin(data):
+            log(tr("plugin_other_version", path=plugin_ini_path))
         write_file(ftp, plugin_path + ".txt", pc_ip.encode("ascii"))
         log(tr("address_written", path=plugin_ini_path + ".txt", ip=pc_ip))
         if new_text is not None:

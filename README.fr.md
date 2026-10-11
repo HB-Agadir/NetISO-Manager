@@ -25,7 +25,7 @@ Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et
 ## Prerequis
 
 - Une Xbox 360 RGH ou JTAG avec DashLaunch et Aurora 0.7b.
-- Le plugin `NetISO.xex` 1.0 de cOz, charge par DashLaunch. Il n'est pas fourni ici.
+- Le plugin `NetISO.xex` 1.0 de cOz. Il est fourni avec NetISO Manager, sans modification, et installe par le bouton de configuration.
 - Un PC Windows 64 bits sur le meme reseau que la console. L'installateur `NetISOManager-x64.msi` des releases contient tout, guide d'utilisation compris; pour lancer depuis les sources il faut Python 3 (Tkinter inclus).
 - Vos propres ISO ou dossiers de jeu, issus de jeux que vous possedez.
 
@@ -111,7 +111,9 @@ NetISO Manager ne fait que rendre plus simple un travail que d'autres ont accomp
 - Les auteurs de **xkelib**, utilisee pour compiler le lanceur.
 - La communaute **ConsoleMods** pour sa documentation.
 
-NetISO Manager n'est affilie a aucun d'entre eux. Le plugin `NetISO.xex` reste l'oeuvre de cOz et n'est pas redistribue ici.
+NetISO Manager n'est affilie a aucun d'entre eux.
+
+**A propos du plugin fourni.** `app/plugin/NetISO.xex` est le NetISO 1.0 de cOz, inclus exactement tel qu'il l'a publie, avec son fichier d'origine (`app/plugin/NetISO-README-cOz.txt`). Il est joint pour une seule raison: le lanceur ne fonctionne qu'avec cette version precise, et demander aux debutants de trouver le bon fichier ailleurs etait le principal obstacle a l'installation. Il reste entierement son oeuvre. Si cOz ou tout ayant droit prefere qu'il ne soit pas distribue ici, ouvrez un ticket et il sera retire.
 
 ## Licence
 

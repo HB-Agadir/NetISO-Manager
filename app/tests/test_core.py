@@ -364,6 +364,22 @@ class SyncPlanTests(TempDirCase):
         self.assertIsNone(netiso_console.xex_game_key(b"not a xex"))
 
 
+class BundledPluginTests(unittest.TestCase):
+    def test_the_shipped_plugin_is_the_exact_build_the_launcher_knows(self):
+        path = netiso_console.bundled_plugin()
+        self.assertIsNotNone(path)
+        with open(path, "rb") as f:
+            data = f.read()
+        self.assertTrue(netiso_console.is_known_plugin(data))
+        self.assertEqual(data[:4], b"XEX2")
+        self.assertFalse(netiso_console.is_known_plugin(data + b"x"))
+
+    def test_the_original_readme_ships_with_it(self):
+        readme = os.path.join(os.path.dirname(netiso_console.bundled_plugin()), "NetISO-README-cOz.txt")
+        with open(readme, encoding="latin-1") as f:
+            self.assertIn("brought to you by cOz", f.read())
+
+
 class LaunchIniTests(unittest.TestCase):
     INI = ("; comment\r\n[Paths]\r\nDefault = Hdd:\\Aurora\\Aurora.xex\r\nplugin1 = ignored\r\n"
            "[Plugins]\r\nplugin1 = Hdd:\\X360Remap.xex\r\nplugin2 = \r\nplugin3 =\r\n"
