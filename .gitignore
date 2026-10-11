@@ -7,3 +7,4 @@ stub/*.user
 deploy/
 build_env/
 dist/
+bench/Release Retail/

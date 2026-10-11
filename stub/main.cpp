@@ -3,8 +3,9 @@
 // the disc to become readable, then boots it.
 //
 // game:\netiso.cfg holds the game name on line 1 and, on line 2, the message
-// to show when the PC cannot be reached (UTF-8). Every step is written to
-// game:\netiso_stub.log.
+// to show when the PC cannot be reached (UTF-8), on line 3 the number of
+// discs of the game and on line 4 the size of the plugin's read requests.
+// Every step is written to game:\netiso_stub.log.
 
 #include <xtl.h>
 #include <stdio.h>
@@ -55,7 +56,8 @@ static void TrimLine(char *line)
 		line[--len] = '\0';
 }
 
-static bool ReadConfig(char *name, size_t nameSize, WCHAR *message, int messageChars, int *discs)
+static bool ReadConfig(char *name, size_t nameSize, WCHAR *message, int messageChars, int *discs,
+	DWORD *requestSize)
 {
 	char line[512];
 	FILE *cfg = fopen("game:\\netiso.cfg", "rb");
@@ -63,13 +65,18 @@ static bool ReadConfig(char *name, size_t nameSize, WCHAR *message, int messageC
 		return false;
 	bool ok = fgets(name, (int)nameSize, cfg) != NULL;
 	*discs = 1;
+	*requestSize = 0;
 	if (ok && fgets(line, sizeof(line), cfg) != NULL)
 	{
 		TrimLine(line);
 		if (line[0] != '\0')
 			MultiByteToWideChar(CP_UTF8, 0, line, -1, message, messageChars);
 		if (fgets(line, sizeof(line), cfg) != NULL)
+		{
 			*discs = atoi(line);
+			if (fgets(line, sizeof(line), cfg) != NULL)
+				*requestSize = strtoul(line, NULL, 10);
+		}
 	}
 	fclose(cfg);
 	if (!ok)
@@ -164,6 +171,59 @@ static bool WritePluginOpcode(DWORD expected, DWORD replacement)
 	}
 }
 
+// The plugin fetches the disc from the PC in requests of at most 0x1000 bytes
+// ("cmplwi r4,N / blt / li r4,N"), which caps the speed at about 4 MB/s on a
+// link that can carry more than twice that. Raising N to 0x7800 was measured
+// at 8.9 MB/s with every byte read back identical. The change stays in the
+// plugin's memory until the console restarts.
+static const DWORD kCompareAddress = 0x911050E0;
+static const DWORD kCompareOpcode = 0x2B040000; // cmplwi cr6,r4,N
+static const DWORD kLoadAddress = 0x911050E8;
+static const DWORD kLoadOpcode = 0x38800000;    // li r4,N
+static const DWORD kMaxRequestSize = 0x7800;    // largest sector multiple "li" can load
+
+static bool WriteOpcode(DWORD address, DWORD value)
+{
+	DWORD *code = (DWORD *)address;
+	*code = value;
+	__dcbst(0, code);
+	__sync();
+	__emit(0x4C00012C); // isync
+	return *code == value;
+}
+
+static bool SetRequestSize(DWORD size)
+{
+	if (size < 0x1000 || size > kMaxRequestSize || (size & 0x7FF) != 0)
+		return false;
+	__try
+	{
+		DWORD compare = *(DWORD *)kCompareAddress;
+		DWORD load = *(DWORD *)kLoadAddress;
+		DWORD current = load & 0xFFFF;
+		if ((compare & 0xFFFF0000) != kCompareOpcode || (load & 0xFFFF0000) != kLoadOpcode
+			|| (compare & 0xFFFF) != current)
+		{
+			Log("unexpected read code %08X %08X, request size left untouched", compare, load);
+			return false;
+		}
+		if (current == size)
+			return true;
+		// The comparison and the value must never let a request exceed what
+		// is left to read: grow the comparison first, shrink the value first.
+		if (size > current)
+			return WriteOpcode(kCompareAddress, kCompareOpcode | size)
+				&& WriteOpcode(kLoadAddress, kLoadOpcode | size);
+		return WriteOpcode(kLoadAddress, kLoadOpcode | size)
+			&& WriteOpcode(kCompareAddress, kCompareOpcode | size);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		Log("exception 0x%08X while setting the request size", GetExceptionCode());
+		return false;
+	}
+}
+
 static bool WaitForDisc(DWORD timeoutMs)
 {
 	DWORD start = GetTickCount();
@@ -195,7 +255,8 @@ void __cdecl main()
 	wcscpy(message, kDefaultMessage);
 
 	int discs = 1;
-	if (!ReadConfig(name, sizeof(name), message, 256, &discs))
+	DWORD requestSize = 0;
+	if (!ReadConfig(name, sizeof(name), message, 256, &discs, &requestSize))
 	{
 		Log("netiso.cfg missing or empty");
 		FailToDashboard(message);
@@ -237,6 +298,8 @@ void __cdecl main()
 		FailToDashboard(message);
 		return;
 	}
+	if (requestSize != 0)
+		Log("read request size 0x%X: %d", requestSize, SetRequestSize(requestSize));
 	Log("disc ready, launching");
 	XLaunchNewImage("nisodvd:\\default.xex", 0);
 }

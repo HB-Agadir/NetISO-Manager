@@ -209,7 +209,10 @@ class TileTests(TempDirCase):
         self.assertEqual(stamped[hash_at:hash_at + 20], netiso_iso.xex_header_hash(stamped))
         self.assertNotEqual(stamped[hash_at:hash_at + 20], stub[hash_at:hash_at + 20])
         self.assertEqual(len(stamped), len(stub))
-        self.assertEqual(files["netiso.cfg"], "g\r\nPC injoignable é\r\n1\r\n".encode("utf-8"))
+        self.assertEqual(files["netiso.cfg"], "g\r\nPC injoignable é\r\n1\r\n0\r\n".encode("utf-8"))
+        fast = netiso_iso.tile_files(stub, tile, "m", netiso_iso.FAST_REQUEST_SIZE)
+        self.assertEqual(fast["netiso.cfg"], b"g\r\nm\r\n1\r\n30720\r\n")
+        self.assertEqual(netiso_iso.FAST_REQUEST_SIZE % netiso_iso.SECTOR, 0)
 
     def test_stamp_stub_refuses_a_stub_whose_header_hash_it_cannot_reproduce(self):
         with open(STUB_PATH, "rb") as f:

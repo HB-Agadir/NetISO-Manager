@@ -253,7 +253,9 @@ def sync(settings, tiles, stub, log):
             log(tr("tile_removed", name=name))
         message = tr("console_no_server")
         for number, tile in enumerate(to_send, 1):
-            send_tile(ftp, remote_root, tile.name, netiso_iso.tile_files(stub, tile, message))
+            send_tile(ftp, remote_root, tile.name, netiso_iso.tile_files(
+                stub, tile, message,
+                netiso_iso.FAST_REQUEST_SIZE if settings.get("fast_read", True) else 0))
             log("  %d/%d  %s" % (number, len(to_send), tile.name))
         prepare_cleanup(ftp, remote_root, log)
         sent = {tile.name for tile in to_send}

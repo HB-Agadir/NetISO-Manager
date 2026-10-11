@@ -124,6 +124,21 @@ A valider: le comportement des title updates (le stub porte le meme Title ID et 
 - Un jeu multi-disques present a la fois en ISO et en dossiers donne deux tuiles distinctes, jamais un melange.
 - Archives zip ou rar: ecartees. L'acces aleatoire dans un fichier compresse impose de decompresser ce qui precede.
 
+## Vitesse de lecture (2026-10-11)
+
+- Mesure avec `bench/` (outil de developpement: lit des tranches de 64 Mo d'un fichier du disque monte, chronometre les lectures seules et calcule une empreinte FNV-1a): le plugin d'origine plafonne a 4,1-4,4 Mo/s, bien en dessous des 11 Mo/s du port. La cause est la taille de ses requetes: 0x1000 octets au plus (`cmplwi r4,0x1000` en 0x911050E0, `li r4,0x1000` en 0x911050E8), soit un aller-retour reseau par bloc de 4 Ko.
+- En portant cette taille a 0x4000: 8,04 Mo/s. A 0x7800 (maximum chargeable par `li`, multiple du secteur): 8,87 Mo/s. Les empreintes des tranches lues par la console sont identiques a celles calculees sur le PC.
+- Integre au lanceur: ligne 4 de `netiso.cfg` = taille de requete (30720, ou 0 pour ne rien changer). Le lanceur verifie les deux instructions avant d'ecrire, agrandit la comparaison avant la valeur (et l'inverse pour reduire) afin qu'une requete ne depasse jamais ce qui reste a lire. La modification reste en memoire jusqu'au redemarrage de la console.
+- Valide en jeu: Gears of War lance avec 0x7800, video d'introduction lue depuis le disque.
+- Option "Chargements rapides" dans l'application, active par defaut.
+- Le serveur d'origine de cOz n'a pas ete essaye avec des requetes de cette taille.
+- Combiner Ethernet et Wi-Fi: ecarte. La console n'utilise qu'une interface a la fois et le debit n'etait pas limite par le lien.
+
+## Serveur web d'Aurora (piste pour une vue de la console)
+
+- Aurora (module Nova) ecoute en HTTP sur le port 9999. Routes relevees dans son interface web: `POST /authenticate` (champs `username`, `password`, reponse `token`, ensuite en-tete `Authorization: Bearer`), `/screencapture/meta`, `/screencapture/meta/list`, `/image/screencapture?uuid=`, `/title`, `POST /title/launch`, `/system`, `/dashlaunch`, `/plugin`, `/multidisc`, `/temperature`, `/smc`, `/thread`.
+- Sur la console de test l'acces est protege (`X-Security-Enabled: 1`). Non essaye avec identifiants.
+
 ## Questions ouvertes
 
 1. Title updates: s'appliquent-ils a un jeu lance par une tuile qui porte le meme Title ID et Media ID?

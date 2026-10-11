@@ -36,10 +36,13 @@ DEFAULTS = {
     "recursive": True,
     "auto_detect": True,
     "group_discs": True,
+    "fast_read": True,
     "console_ip": "",
     "ftp_user": "xboxftp",
     "ftp_password": "xboxftp",
     "remote_root": "/Hdd1/NetISO",
+    "http_user": "",
+    "http_password": "",
     "console_game_folders": ["/Hdd1/Games"],
     "autostart_server": True,
     "welcome_shown": False,
@@ -79,8 +82,8 @@ class App(tk.Tk):
     def __init__(self, minimized=False):
         super().__init__()
         self.title("NetISO Manager")
-        self.geometry("1040x760")
-        self.minsize(900, 640)
+        self.geometry("1040x820")
+        self.minsize(900, 700)
         self.settings = load_settings()
         netiso_i18n.set_language(self.settings["language"])
         self.tiles = []
@@ -185,18 +188,25 @@ class App(tk.Tk):
         self.remote_root = tk.StringVar(value=self.settings["remote_root"])
         self.console_folders = tk.StringVar(
             value="; ".join(self.settings["console_game_folders"]))
+        self.http_user = tk.StringVar(value=self.settings["http_user"])
+        self.http_password = tk.StringVar(value=self.settings["http_password"])
         for line, (key, variable) in enumerate((
                 ("console_ip", self.console_ip), ("ftp_user", self.ftp_user),
-                ("ftp_password", self.ftp_password), ("remote_root", self.remote_root),
+                ("ftp_password", self.ftp_password), ("http_user", self.http_user),
+                ("http_password", self.http_password), ("remote_root", self.remote_root),
                 ("console_folders", self.console_folders))):
-            ttk.Label(console, text=tr(key)).grid(row=line, column=0, sticky="w", padx=8, pady=3)
-            ttk.Entry(console, textvariable=variable, width=18).grid(
-                row=line, column=1, sticky="we", padx=8, pady=3)
+            ttk.Label(console, text=tr(key)).grid(row=line, column=0, sticky="w", padx=8, pady=2)
+            ttk.Entry(console, textvariable=variable, width=18,
+                      show="*" if key.endswith("password") else "").grid(
+                row=line, column=1, sticky="we", padx=8, pady=2)
         console.columnconfigure(1, weight=1)
         self.push_button = ttk.Button(console, text=tr("sync_button"), command=self._push)
-        self.push_button.grid(row=5, column=0, columnspan=2, sticky="we", padx=8, pady=(8, 2))
+        self.push_button.grid(row=8, column=0, columnspan=2, sticky="we", padx=8, pady=(6, 2))
+        self.fast_read = tk.BooleanVar(value=self.settings["fast_read"])
+        ttk.Checkbutton(console, text=tr("fast_read"), variable=self.fast_read).grid(
+            row=7, column=0, columnspan=2, sticky="w", padx=8)
         self.setup_button = ttk.Button(console, text=tr("setup_button"), command=self._setup)
-        self.setup_button.grid(row=6, column=0, columnspan=2, sticky="we", padx=8, pady=(2, 8))
+        self.setup_button.grid(row=9, column=0, columnspan=2, sticky="we", padx=8, pady=(2, 8))
         if self.busy:
             self.push_button.configure(state="disabled")
             self.setup_button.configure(state="disabled")
@@ -337,9 +347,12 @@ class App(tk.Tk):
             "recursive": self.recursive.get(),
             "auto_detect": self.auto_detect.get(),
             "group_discs": self.group_discs.get(),
+            "fast_read": self.fast_read.get(),
             "console_ip": self.console_ip.get().strip(),
             "ftp_user": self.ftp_user.get(),
             "ftp_password": self.ftp_password.get(),
+            "http_user": self.http_user.get(),
+            "http_password": self.http_password.get(),
             "remote_root": self.remote_root.get().strip(),
             "console_game_folders": [f.strip() for f in self.console_folders.get().split(";")
                                      if f.strip()],

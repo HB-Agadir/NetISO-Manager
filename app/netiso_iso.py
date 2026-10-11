@@ -432,13 +432,18 @@ def scan(folders, recursive, group_discs=True):
     return build_tiles(games, group_discs), errors
 
 
-def tile_files(stub, tile, message=""):
+FAST_REQUEST_SIZE = 0x7800  # bytes per read request asked of the plugin; 0 keeps its own 0x1000
+
+
+def tile_files(stub, tile, message="", request_size=0):
     """Returns the files of a tile as {filename: bytes}.
 
     netiso.cfg holds the tile name on its first line, on the second the text
-    the launcher shows on the console when the PC cannot be reached, and on
-    the third the number of discs of the game.
+    the launcher shows on the console when the PC cannot be reached, on the
+    third the number of discs of the game, and on the fourth the size of the
+    read requests the plugin should use (0 leaves the plugin as it is).
     """
     config = b"\r\n".join((tile.name.encode("ascii"), message.encode("utf-8"),
-                            str(len(tile.games)).encode("ascii"), b""))
+                            str(len(tile.games)).encode("ascii"),
+                            str(request_size).encode("ascii"), b""))
     return {"default.xex": stamp_stub(stub, tile), "netiso.cfg": config}
