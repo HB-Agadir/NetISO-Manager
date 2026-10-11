@@ -8,6 +8,8 @@
     <SummaryInformation Description="NetISO Manager $(var.Version) (64-bit)" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of NetISO Manager is already installed." />
     <MediaTemplate EmbedCab="yes" />
+    <Icon Id="AppIcon.ico" SourceFile="$(var.Icon)" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="NetISO Manager" />

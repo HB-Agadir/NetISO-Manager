@@ -1,5 +1,7 @@
 # NetISO Manager
 
+<img src="icon.png" alt="NetISO Manager" width="128">
+
 English | [Francais](README.fr.md)
 
 Play the Xbox 360 ISOs stored on your Windows PC straight from the Aurora game list, on an RGH/JTAG console.

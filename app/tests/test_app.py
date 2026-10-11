@@ -164,8 +164,8 @@ class WindowTests(unittest.TestCase):
             def title(self):
                 return {"titleid": "0x4D5307D5"}
 
-        self.manager.netiso_nova.NovaClient = FakeClient
         self.addCleanup(setattr, self.manager.netiso_nova, "NovaClient", netiso_nova.NovaClient)
+        self.manager.netiso_nova.NovaClient = FakeClient
         self.manager.ConsoleView.RETRY_SECONDS = 0.05
         self.app.console_ip.set("192.0.2.1")
         self.app._open_view()

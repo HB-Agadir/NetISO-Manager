@@ -151,6 +151,10 @@ class App(tk.Tk):
     def __init__(self, minimized=False):
         super().__init__()
         self.title("NetISO Manager")
+        try:
+            self.iconbitmap(default=os.path.join(APP_DIR, "icon.ico"))  # default: also for the other windows
+        except tk.TclError:
+            pass
         self.geometry("1040x860")
         self.minsize(900, 740)
         self.settings = load_settings()

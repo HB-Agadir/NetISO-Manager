@@ -1,5 +1,7 @@
 # NetISO Manager
 
+<img src="icon.png" alt="NetISO Manager" width="128">
+
 [English](README.md) | Francais
 
 Jouez a vos ISO Xbox 360 stockes sur un PC Windows, directement depuis la liste de jeux d'Aurora, sur une console RGH/JTAG.

@@ -6,6 +6,6 @@ cd /d "%~dp0"
 if not exist build_env\Scripts\python.exe python -m venv build_env || exit /b 1
 build_env\Scripts\python.exe -m pip install --disable-pip-version-check pyinstaller || exit /b 1
 build_env\Scripts\python.exe -m PyInstaller --noconfirm --clean --onefile --windowed ^
-    --name "NetISO Manager" --paths "%~dp0app" --add-data "%~dp0app\stub.xex;." --add-data "%~dp0app\plugin;plugin" --add-data "%~dp0docs;docs" ^
+    --name "NetISO Manager" --icon "%~dp0app\icon.ico" --paths "%~dp0app" --add-data "%~dp0app\icon.ico;." --add-data "%~dp0app\stub.xex;." --add-data "%~dp0app\plugin;plugin" --add-data "%~dp0docs;docs" ^
     --distpath "%~dp0dist" --workpath "%~dp0build_env\work" --specpath "%~dp0build_env" ^
     "%~dp0app\NetISOManager.pyw"
