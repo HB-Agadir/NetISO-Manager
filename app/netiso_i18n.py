@@ -247,12 +247,12 @@ _TEXTS = {
 }
 
 _ORDER = ("fr", "en", "ar")
-_current = "fr"
+_current = "en"
 
 
 def set_language(code):
     global _current
-    _current = code if code in LANGUAGES else "fr"
+    _current = code if code in LANGUAGES else "en"
 
 
 def language():

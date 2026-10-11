@@ -13,7 +13,7 @@
 #include "xkelib.h"
 
 static const DWORD kDiscTimeoutMs = 30000;
-static const DWORD kDiscChoiceMs = 700;
+static const DWORD kDiscChoiceMs = 2500;
 static const char kNoServerEntry[] = "No Server!";
 static const WCHAR kDefaultMessage[] = L"NetISO: PC not reachable. Open NetISO Manager.";
 

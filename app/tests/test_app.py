@@ -24,12 +24,12 @@ class TranslationTests(unittest.TestCase):
             self.assertEqual(fields[0], fields[1], key)
             self.assertEqual(fields[0], fields[2], key)
 
-    def test_unknown_language_falls_back_to_french(self):
-        self.addCleanup(netiso_i18n.set_language, "fr")
+    def test_unknown_language_falls_back_to_english(self):
+        self.addCleanup(netiso_i18n.set_language, "en")
         netiso_i18n.set_language("xx")
-        self.assertEqual(netiso_i18n.tr("refresh"), "Actualiser")
-        netiso_i18n.set_language("en")
-        self.assertEqual(netiso_i18n.tr("games_found", count=3), "3 game(s) detected")
+        self.assertEqual(netiso_i18n.tr("refresh"), "Refresh")
+        netiso_i18n.set_language("fr")
+        self.assertEqual(netiso_i18n.tr("games_found", count=3), "3 jeu(x) détecté(s)")
 
 
 class WatchHelperTests(unittest.TestCase):
@@ -86,10 +86,11 @@ class WindowTests(unittest.TestCase):
         loader.exec_module(self.manager)
         self.manager.SETTINGS_PATH = os.path.join(self.dir.name, "settings.json")
         self.manager.save_settings(dict(self.manager.DEFAULTS, folders=[self.isos],
-                                        autostart_server=False, welcome_shown=True))
+                                        autostart_server=False, welcome_shown=True,
+                                        language="fr"))
         self.opened = []
         self.manager.webbrowser.open = self.opened.append
-        self.addCleanup(netiso_i18n.set_language, "fr")
+        self.addCleanup(netiso_i18n.set_language, "en")
         self.app = self.manager.App()
         self.addCleanup(self.app.destroy)
         self.pump(lambda: self.app.scanned is not None)
@@ -128,6 +129,9 @@ class WindowTests(unittest.TestCase):
         self.app._welcome()
         self.assertEqual(len(self.opened), 1)
         self.assertEqual(len(asked), 2)
+
+    def test_a_fresh_install_starts_in_english(self):
+        self.assertEqual(self.manager.DEFAULTS["language"], "en")
 
     def test_lists_the_games_of_the_folder(self):
         self.assertEqual([r[0] for r in self.rows()], ["First Game"])

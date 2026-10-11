@@ -16,6 +16,8 @@ XEX_EXECUTION_INFO = 0x00040006
 XEX_HEADER_HASH = 0x164
 XEX_HASHED_TAIL = 0x17C
 FATX_NAME_MAX = 42
+# Title ID shared by install and add-on discs that are not games of their own.
+GENERIC_DISC_TITLE = 0xFFED2000
 
 
 class IsoError(Exception):
@@ -33,6 +35,10 @@ class Game:
         self.disc = disc
         self.discs = discs
         self.size = os.path.getsize(path)
+        self.set_id = title_id  # discs with the same set_id belong to one game
+        # What the console reports for this disc once installed; disc numbers
+        # may be corrected below, this stays as read from the disc.
+        self.console_key = (title_id, disc)
 
 
 class Tile:
@@ -212,6 +218,41 @@ def number_discs_from_names(games):
             continue
         for game, number in zip(group, numbers):
             game.disc, game.discs = number, max(numbers)
+    attach_generic_discs(games)
+
+
+def _base_title(name):
+    return DISC_TAG.sub("", name).strip().lower()
+
+
+def attach_generic_discs(games):
+    """Joins a numbered install disc to the game it belongs to.
+
+    Such a disc carries a generic Title ID instead of the game's, so nothing
+    but its file name links it to the game. It is attached when exactly one
+    game has a matching title and a different disc number.
+    """
+    for extra in games:
+        number = DISC_NUMBER.search(extra.name)
+        if extra.title_id != GENERIC_DISC_TITLE or not number:
+            continue
+        base = _base_title(extra.name)
+        matches = []
+        for game in games:
+            other = DISC_NUMBER.search(game.name)
+            other_base = _base_title(game.name)
+            if (game.title_id != GENERIC_DISC_TITLE and other and base
+                    and other.group(1) != number.group(1)
+                    and (other_base.startswith(base) or base.startswith(other_base))):
+                matches.append(game)
+        if len({game.set_id for game in matches}) != 1:
+            continue
+        extra.set_id = matches[0].set_id
+        for game in matches + [extra]:
+            game.disc = int(DISC_NUMBER.search(game.name).group(1))
+        count = max(game.disc for game in matches + [extra])
+        for game in matches + [extra]:
+            game.discs = max(game.discs, count)
 
 
 def build_tiles(games, group_discs=True):
@@ -226,9 +267,9 @@ def build_tiles(games, group_discs=True):
     groups, order = {}, []
     for game in games:
         grouped = group_discs and game.discs > 1
-        key = (game.title_id,) if grouped else (game.title_id, id(game))
+        key = (game.set_id,) if grouped else (game.set_id, id(game))
         if key in groups and any(other.disc == game.disc for other in groups[key]):
-            key = (game.title_id, id(game))
+            key = (game.set_id, id(game))
         if key not in groups:
             groups[key] = []
             order.append(key)

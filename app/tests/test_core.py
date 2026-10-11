@@ -118,6 +118,26 @@ class TileTests(TempDirCase):
         self.assertEqual([(g.disc, g.discs) for g in tiles[2].games], [(1, 2), (2, 2)])
         self.assertTrue(tiles[2].games[1].path.endswith("(Disc 2).iso"))
 
+    def test_a_numbered_install_disc_joins_the_game_it_belongs_to(self):
+        games = [self.game("Resident Evil 6 (USA, Europe) (Disc 2).iso", netiso_iso.GENERIC_DISC_TITLE),
+                 self.game("Resident Evil 6 ~ Biohazard 6 (World) (Disc 1).iso", 0x43430819),
+                 self.game("Mafia II (USA) (Add-On Content Disc).iso", netiso_iso.GENERIC_DISC_TITLE),
+                 self.game("Mafia II (USA).iso", 0x545407E6)]
+        tiles = netiso_iso.build_tiles(games)
+        self.assertEqual([t.name for t in tiles],
+                         ["Mafia II", "Mafia II (Add-On Content Disc)", "Resident Evil 6 ~ Biohazard 6"])
+        saga = tiles[2]
+        self.assertEqual([g.disc for g in saga.games], [1, 2])
+        self.assertEqual(saga.title_id, 0x43430819)
+        self.assertEqual(saga.game().disc, 1)
+        self.assertEqual(saga.games[1].console_key, (netiso_iso.GENERIC_DISC_TITLE, 1))
+
+    def test_an_install_disc_matching_several_games_stays_on_its_own(self):
+        games = [self.game("Saga (Disc 3).iso", netiso_iso.GENERIC_DISC_TITLE),
+                 self.game("Saga (Disc 1).iso", 0x111),
+                 self.game("Saga II (Disc 1).iso", 0x222)]
+        self.assertEqual(len(netiso_iso.build_tiles(games)), 3)
+
     def test_without_grouping_every_disc_keeps_its_own_tile(self):
         games = [self.game("Big Game (USA) (Disc 1).iso", 0x500, 1, 2),
                  self.game("Big Game (USA) (Disc 2).iso", 0x500, 2, 2),
@@ -285,6 +305,15 @@ class SyncPlanTests(TempDirCase):
         self.assertEqual([t.name for t in to_send], ["G"])
         to_send, _ = netiso_console.plan_sync(tiles, {(0x333, 1), (0x333, 2)}, [])
         self.assertEqual(to_send, [])
+
+    def test_install_check_uses_what_the_disc_itself_reports(self):
+        tiles = self.tiles(("RE (Disc 2).iso", netiso_iso.GENERIC_DISC_TITLE), ("RE (Disc 1).iso", 0x900))
+        self.assertEqual(len(tiles), 1)
+        installed = {(netiso_iso.GENERIC_DISC_TITLE, 1), (0x900, 1)}
+        to_send, _ = netiso_console.plan_sync(tiles, installed, [])
+        self.assertEqual(to_send, [])
+        to_send, _ = netiso_console.plan_sync(tiles, {(0x900, 1)}, [])
+        self.assertEqual([t.name for t in to_send], ["RE"])
 
     def test_container_install_covers_every_disc(self):
         tiles = self.tiles(("G (Disc 1).iso", 0x333, 1, 2), ("G (Disc 2).iso", 0x333, 2, 2))

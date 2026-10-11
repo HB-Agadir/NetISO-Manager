@@ -168,7 +168,7 @@ def installed_games(ftp, game_folders, drives, skip_root, progress=None):
 
 
 def is_installed(game, installed):
-    return (game.title_id, game.disc) in installed or (game.title_id, None) in installed
+    return game.console_key in installed or (game.title_id, None) in installed
 
 
 def plan_sync(tiles, installed, existing_tiles):

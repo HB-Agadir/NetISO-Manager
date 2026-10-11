@@ -31,7 +31,7 @@ WATCH_INTERVAL_MS = 15000
 STATUS_INTERVAL_MS = 1000
 PROMPT_NAMES_MAX = 8
 DEFAULTS = {
-    "language": "fr",
+    "language": "en",
     "folders": [],
     "recursive": True,
     "auto_detect": True,
