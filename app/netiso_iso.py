@@ -5,6 +5,7 @@ import os
 import re
 import struct
 
+import netiso_xdvdfs
 from netiso_i18n import tr
 
 SECTOR = 2048
@@ -25,20 +26,35 @@ class IsoError(Exception):
 
 
 class Game:
-    """One ISO on the PC and the identifiers of the disc it contains."""
+    """One disc on the PC, as an ISO file or as a folder of extracted game files."""
 
-    def __init__(self, path, name, title_id, media_id, disc, discs):
+    def __init__(self, path, name, title_id, media_id, disc, discs, size=None):
         self.path = path
+        self.is_folder = os.path.isdir(path)
         self.name = name  # readable game title, without region, language or disc tags
         self.title_id = title_id
         self.media_id = media_id
         self.disc = disc
         self.discs = discs
-        self.size = os.path.getsize(path)
+        self.size = os.path.getsize(path) if size is None else size
         self.set_id = title_id  # discs with the same set_id belong to one game
         # What the console reports for this disc once installed; disc numbers
         # may be corrected below, this stays as read from the disc.
         self.console_key = (title_id, disc)
+
+    def open(self):
+        """Returns the disc image the console will read: .size, .read(offset, length), .close()."""
+        if self.is_folder:
+            try:
+                return netiso_xdvdfs.VirtualDisc(self.path)
+            except netiso_xdvdfs.DiscError as error:
+                raise IsoError(str(error))
+        source = netiso_xdvdfs.IsoFile(self.path)
+        try:
+            source.descriptor_offset = find_partition(source._file) + 32 * SECTOR
+        except (IsoError, OSError):
+            pass
+        return source
 
 
 class Tile:
@@ -137,6 +153,19 @@ def read_iso_ids(path):
     return title_id, media_id, disc, discs
 
 
+def read_folder_ids(folder):
+    """Returns (title_id, media_id, disc, discs) of a folder of extracted game files."""
+    xex = _game_xex(folder)
+    if xex is None:
+        raise IsoError(tr("file_missing", name="default.xex"))
+    with open(xex, "rb") as f:
+        header = f.read(0x10000)
+    offset = xex_execution_info_offset(header)
+    media_id, _version, _base, title_id, _platform, _exe_type, disc, discs = struct.unpack_from(
+        ">IIIIBBBB", header, offset)
+    return title_id, media_id, disc, discs
+
+
 def xex_header_hash(data):
     """SHA-1 the kernel expects in the XEX security info for these headers.
 
@@ -174,7 +203,9 @@ def clean_title(iso_path):
     Tags that mention a disc, such as (Disc 2) or (Add-On Content Disc), are
     kept: they tell apart discs that are separate entries in Aurora.
     """
-    stem = os.path.splitext(os.path.basename(iso_path))[0]
+    stem = os.path.basename(iso_path.rstrip("\\/"))
+    if not os.path.isdir(iso_path):
+        stem = os.path.splitext(stem)[0]
     kept = lambda match: match.group(0) if DISC_TAG.fullmatch(match.group(0)) else " "
     title = re.sub(r"\s*(\([^)]*\)|\[[^\]]*\])", kept, stem)
     title = re.sub(r"\s+", " ", title).strip(" -_.")
@@ -282,31 +313,73 @@ def build_tiles(games, group_discs=True):
         if tile.multi_disc:
             # One tile stands for every disc: its name must not single one out.
             title = DISC_TAG.sub("", title).strip() or title
+            title = re.sub(r"[\s\-_]*dis[ck]\s*\d+\s*$", "", title, flags=re.I).strip() or title
         tile.name = tile_name(title, taken)
     return tiles
 
 
+def _game_xex(folder):
+    """Path of the default.xex that makes a folder a game folder, or None."""
+    try:
+        for name in os.listdir(folder):
+            if name.lower() == "default.xex" and os.path.isfile(os.path.join(folder, name)):
+                return os.path.join(folder, name)
+    except OSError:
+        pass
+    return None
+
+
 def find_isos(folders, recursive):
+    """Returns the games found: ISO files, and folders that hold a default.xex.
+
+    A game folder is taken as a whole: what lies inside it is not searched.
+    """
     found = []
+
+    def look(folder, deeper):
+        try:
+            names = os.listdir(folder)
+        except OSError:
+            return
+        for name in names:
+            path = os.path.join(folder, name)
+            if os.path.isdir(path):
+                if _game_xex(path):
+                    found.append(path)
+                elif deeper:
+                    look(path, True)
+            elif name.lower().endswith(".iso"):
+                found.append(path)
+
     for folder in folders:
-        if not os.path.isdir(folder):
-            continue
-        if recursive:
-            for root, _dirs, files in os.walk(folder):
-                found += [os.path.join(root, n) for n in files if n.lower().endswith(".iso")]
-        else:
-            found += [os.path.join(folder, n) for n in os.listdir(folder)
-                      if n.lower().endswith(".iso")]
+        if os.path.isdir(folder):
+            look(folder, recursive)
     unique = {os.path.normcase(os.path.abspath(p)): p for p in found}
     return sorted(unique.values(), key=lambda p: os.path.basename(p).lower())
 
 
+def folder_size(folder):
+    """Returns (bytes, files) of everything under a folder."""
+    total = count = 0
+    for root, _dirs, files in os.walk(folder):
+        for name in files:
+            try:
+                total += os.path.getsize(os.path.join(root, name))
+                count += 1
+            except OSError:
+                pass
+    return total, count
+
+
 def snapshot(folders, recursive):
-    """Returns {path: size} for every ISO in the folders; cheap enough to poll."""
+    """Returns what is on disk for every game, to notice additions, removals and copies in progress.
+
+    The value is the size of an ISO, or the (bytes, files) of a game folder.
+    """
     result = {}
     for path in find_isos(folders, recursive):
         try:
-            result[path] = os.path.getsize(path)
+            result[path] = folder_size(path) if os.path.isdir(path) else os.path.getsize(path)
         except OSError:
             pass
     return result
@@ -314,6 +387,8 @@ def snapshot(folders, recursive):
 
 def is_being_written(path):
     """True while another program (a copy, a download) still holds the file open for writing."""
+    if os.path.isdir(path):
+        return False  # a folder still being copied is caught by its size changing
     if not os.access(path, os.W_OK):
         return False  # read-only file: nothing is writing to it
     try:
@@ -328,11 +403,16 @@ def scan(folders, recursive, group_discs=True):
     games, errors = [], []
     for path in find_isos(folders, recursive):
         try:
-            title_id, media_id, disc, discs = read_iso_ids(path)
+            if os.path.isdir(path):
+                title_id, media_id, disc, discs = read_folder_ids(path)
+                size = folder_size(path)[0]
+            else:
+                title_id, media_id, disc, discs = read_iso_ids(path)
+                size = None
         except (IsoError, OSError, struct.error) as error:
             errors.append((path, str(error)))
             continue
-        games.append(Game(path, clean_title(path), title_id, media_id, disc, discs))
+        games.append(Game(path, clean_title(path), title_id, media_id, disc, discs, size))
     return build_tiles(games, group_discs), errors
 
 

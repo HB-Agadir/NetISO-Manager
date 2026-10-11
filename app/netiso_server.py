@@ -139,8 +139,7 @@ class NetIsoServer:
                 elif cmd == CMD_GET_SIZE:
                     sectors = 0
                     if mounted is not None:
-                        mounted.seek(0, 2)
-                        sectors = mounted.tell() // SECTOR
+                        sectors = mounted.size // SECTOR
                     conn.sendall(struct.pack(">II", sectors, SECTOR))
                 elif cmd == CMD_HAS_TYPE1:
                     conn.sendall(struct.pack(">I", 0))
@@ -150,8 +149,7 @@ class NetIsoServer:
                     if descriptor is not None and offset <= descriptor < offset + length:
                         # The console reads this when it (re)discovers the disc.
                         self._on_event("trace", "volume descriptor read")
-                    mounted.seek(offset)
-                    data = mounted.read(length).ljust(length, b"\0")
+                    data = mounted.read(offset, length)
                     with self._lock:
                         self._bytes += length
                     conn.sendall(data)
@@ -173,16 +171,11 @@ class NetIsoServer:
                     found = None if name == DISABLE_NAME else self._find(name, step)
                     if found is not None:
                         try:
-                            mounted = open(found[1].path, "rb", buffering=0)
-                        except OSError as error:
+                            mounted = found[1].open()
+                        except (OSError, netiso_iso.IsoError) as error:
                             self._on_event("mount", tr("open_failed", path=found[1].path,
                                                        error=error))
-                    descriptor = None
-                    if mounted is not None:
-                        try:
-                            descriptor = netiso_iso.find_partition(mounted) + 32 * SECTOR
-                        except (OSError, netiso_iso.IsoError):
-                            pass
+                    descriptor = mounted.descriptor_offset if mounted is not None else None
                     with self._lock:
                         self._playing = (found[0], found[1].disc) if mounted is not None else None
                     self._on_event("trace", "mount request '%s' -> %s" % (

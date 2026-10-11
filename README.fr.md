@@ -10,7 +10,8 @@ Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et
 
 ## Ce que fait l'application
 
-- Choix d'un ou plusieurs dossiers d'ISO, sur n'importe quels disques du PC, sous-dossiers compris.
+- Choix d'un ou plusieurs dossiers de jeux, sur n'importe quels disques du PC, sous-dossiers compris.
+- Accepte les fichiers ISO et les dossiers de jeu extraits (un dossier contenant `default.xex`). Un dossier est presente a la console comme un disque, a la volee: rien n'est converti ni copie, et le debit est le meme qu'avec un ISO.
 - Lecture du Title ID et du Media ID dans chaque ISO (XGD2, XGD3, XISO).
 - Creation d'une tuile par jeu et envoi sur la console par le FTP d'Aurora, avec verification de chaque fichier.
 - Serveur NetISO integre, qui sert les jeux de tous les dossiers a la fois.
@@ -26,7 +27,7 @@ Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et
 - Une Xbox 360 RGH ou JTAG avec DashLaunch et Aurora 0.7b.
 - Le plugin `NetISO.xex` 1.0 de cOz, charge par DashLaunch. Il n'est pas fourni ici.
 - Un PC Windows 64 bits sur le meme reseau que la console. L'installateur `NetISOManager-x64.msi` des releases contient tout, guide d'utilisation compris; pour lancer depuis les sources il faut Python 3 (Tkinter inclus).
-- Vos propres ISO, issus de jeux que vous possedez.
+- Vos propres ISO ou dossiers de jeu, issus de jeux que vous possedez.
 
 ## Installation sur la console
 
@@ -44,7 +45,7 @@ Le Nova.xex modifie de la methode NetISO classique n'est pas necessaire.
 ## Utilisation
 
 1. Installez `NetISOManager-x64.msi` puis lancez NetISO Manager depuis le Bureau (ou `NetISO Manager.bat` depuis les sources).
-2. Ajoutez vos dossiers d'ISO.
+2. Ajoutez les dossiers qui contiennent vos jeux.
 3. Renseignez l'adresse IP de la console et, si besoin, les identifiants FTP d'Aurora.
 4. Cliquez sur "Synchroniser avec Aurora", Aurora etant ouvert sur la console.
 5. Lancez un scan dans Aurora, puis un jeu.
@@ -86,6 +87,7 @@ Le guide d'utilisation est dans `docs/` (francais et anglais).
 python app/tests/test_core.py
 python app/tests/test_app.py
 python app/tests/test_cleanup.py
+python app/tests/test_folders.py
 ```
 
 ## Soutenir le projet

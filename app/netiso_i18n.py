@@ -4,13 +4,14 @@ LANGUAGES = {"fr": "Français", "en": "English", "ar": "العربية"}
 
 _TEXTS = {
     # window
-    "folders_frame": ("1. Dossiers contenant vos ISO", "1. Folders containing your ISOs",
-                      "1. المجلدات التي تحتوي على ملفات ISO"),
+    "folders_frame": ("1. Dossiers contenant vos jeux (ISO ou dossiers de jeu)",
+                      "1. Folders containing your games (ISOs or game folders)",
+                      "1. المجلدات التي تحتوي على ألعابك (ملفات ISO أو مجلدات ألعاب)"),
     "add_folder": ("Ajouter un dossier...", "Add folder...", "إضافة مجلد..."),
     "remove": ("Retirer", "Remove", "إزالة"),
     "recursive": ("Inclure les sous-dossiers", "Include subfolders", "تضمين المجلدات الفرعية"),
     "refresh": ("Actualiser", "Refresh", "تحديث"),
-    "auto_detect": ("Détecter les nouveaux ISO", "Detect new ISOs", "اكتشاف ملفات ISO الجديدة"),
+    "auto_detect": ("Détecter les nouveaux jeux", "Detect new games", "اكتشاف الألعاب الجديدة"),
     "language": ("Langue", "Language", "اللغة"),
     "games_frame": ("2. Jeux détectés", "2. Detected games", "2. الألعاب المكتشفة"),
     "col_game": ("Jeu", "Game", "اللعبة"),
@@ -91,7 +92,7 @@ _TEXTS = {
     "server_start": ("Démarrer le serveur", "Start server", "تشغيل الخادم"),
     "server_stop": ("Arrêter le serveur", "Stop server", "إيقاف الخادم"),
     "log_frame": ("Journal", "Log", "السجل"),
-    "choose_folder": ("Choisir un dossier d'ISO", "Choose an ISO folder", "اختر مجلد ملفات ISO"),
+    "choose_folder": ("Choisir un dossier de jeux", "Choose a games folder", "اختر مجلد الألعاب"),
     "support_link": ("♥ Soutenir le projet", "♥ Support the project", "♥ ادعم المشروع"),
     "guide_link": ("Guide d'utilisation", "User guide", "دليل الاستخدام"),
     "welcome": (
@@ -109,9 +110,9 @@ _TEXTS = {
     # dialogs
     "need_ip": ("Indiquez l'adresse IP de la console.", "Enter the console's IP address.",
                 "أدخل عنوان IP للجهاز."),
-    "no_games": ("Aucun jeu détecté. Ajoutez un dossier d'ISO.",
-                 "No game detected. Add an ISO folder.",
-                 "لم يتم اكتشاف أي لعبة. أضف مجلد ملفات ISO."),
+    "no_games": ("Aucun jeu détecté. Ajoutez un dossier de jeux.",
+                 "No game detected. Add a games folder.",
+                 "لم يتم اكتشاف أي لعبة. أضف مجلد ألعاب."),
     "stub_missing": ("Lanceur introuvable : {error}", "Launcher not found: {error}",
                      "ملف التشغيل غير موجود: {error}"),
     "port_busy_dialog": (
@@ -128,9 +129,9 @@ _TEXTS = {
                          "Do you want to transfer them to Aurora now?",
                          "هل تريد نقلها إلى Aurora الآن؟"),
     # log
-    "scanning": ("Recherche des ISO dans {count} dossier(s)...",
-                 "Looking for ISOs in {count} folder(s)...",
-                 "جاري البحث عن ملفات ISO في {count} مجلد..."),
+    "scanning": ("Recherche des jeux dans {count} dossier(s)...",
+                 "Looking for games in {count} folder(s)...",
+                 "جاري البحث عن الألعاب في {count} مجلد..."),
     "games_found": ("{count} jeu(x) détecté(s)", "{count} game(s) detected",
                     "تم اكتشاف {count} لعبة"),
     "ignored": ("Ignoré : {path} ({reason})", "Skipped: {path} ({reason})",

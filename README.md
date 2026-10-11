@@ -10,7 +10,8 @@ Every ISO on the PC shows up in Aurora like an installed game, with its cover an
 
 ## What it does
 
-- Pick one or more ISO folders, on any drive of the PC, subfolders included.
+- Pick one or more game folders, on any drive of the PC, subfolders included.
+- Works with ISO files and with extracted game folders (a folder holding `default.xex`). A folder is presented to the console as a disc on the fly: nothing is converted or copied, and it streams at the same speed as an ISO.
 - Reads the Title ID and Media ID from each ISO (XGD2, XGD3, XISO).
 - Builds one tile per game and sends it to the console over Aurora's FTP server, checking every file after upload.
 - Built-in NetISO server that serves the games of all folders at once.
@@ -33,12 +34,12 @@ The user guide opens from the link at the top of the app. It is also in [docs/Gu
 - An RGH or JTAG Xbox 360 with DashLaunch and Aurora 0.7b.
 - The `NetISO.xex` 1.0 plugin by cOz, loaded by DashLaunch. It is not included here.
 - A 64-bit Windows PC on the same network as the console, preferably wired. Running from source needs Python 3 with Tkinter.
-- Your own ISOs, from games you own.
+- Your own ISOs or game folders, from games you own.
 
 ## Quick start
 
 1. Install and open NetISO Manager.
-2. Add your ISO folders.
+2. Add the folders that hold your games.
 3. Enter the console's IP address, with Aurora open on the console.
 4. Click "Install the plugin on the console" and restart the console. This is done once.
 5. Click "Sync with Aurora".
@@ -88,6 +89,7 @@ Technical details, including the obstacles met along the way, are in [docs/NOTES
 python app/tests/test_core.py
 python app/tests/test_app.py
 python app/tests/test_cleanup.py
+python app/tests/test_folders.py
 ```
 
 ## Support the project
