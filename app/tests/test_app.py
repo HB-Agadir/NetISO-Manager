@@ -1,3 +1,4 @@
+import gc
 import importlib.machinery
 import importlib.util
 import os
@@ -92,8 +93,18 @@ class WindowTests(unittest.TestCase):
         self.manager.webbrowser.open = self.opened.append
         self.addCleanup(netiso_i18n.set_language, "en")
         self.app = self.manager.App()
-        self.addCleanup(self.app.destroy)
+        self.addCleanup(self.close_app)
         self.pump(lambda: self.app.scanned is not None)
+
+    def close_app(self):
+        """Destroys the window and frees its Tk variables here, in the main thread.
+
+        Left to the garbage collector, they could be freed from a worker thread
+        of the next test, where every Tk call stalls for a second.
+        """
+        self.app.destroy()
+        self.app = None
+        gc.collect()
 
     def pump(self, done, timeout=10):
         end = time.time() + timeout
@@ -185,6 +196,21 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(rows["Saga"][3], "2 sur 2")
         self.assertTrue(rows["Saga"][5].endswith("Saga (USA) (Disc 2).iso"))
         self.assertEqual(self.manager.load_settings()["active_discs"], {"33333333": 2})
+
+    def test_counts_show_games_isos_and_game_folders(self):
+        make_iso(os.path.join(self.isos, "Saga (USA) (Disc 1).iso"), 0, make_xex(0x33333333, 1, 1, 2))
+        make_iso(os.path.join(self.isos, "Saga (USA) (Disc 2).iso"), 0, make_xex(0x33333333, 2, 2, 2))
+        folder = os.path.join(self.isos, "Folder Game")
+        os.mkdir(folder)
+        with open(os.path.join(folder, "default.xex"), "wb") as f:
+            f.write(make_xex(0x44444444, 3))
+        self.app.scanned = None
+        self.app._scan()
+        self.pump(lambda: self.app.scanned is not None)
+        self.assertEqual(self.app.counts.get(), "3 jeu(x)   ·   3 ISO   ·   1 dossier(s) de jeu")
+        self.app.states = {"Saga": "netiso", "First Game": "console", "Folder Game": "netiso"}
+        self.app._fill_tree()
+        self.assertTrue(self.app.counts.get().endswith("2 en NetISO, 1 sur la console"))
 
     def test_ungrouping_shows_one_row_per_disc(self):
         make_iso(os.path.join(self.isos, "Saga (USA) (Disc 1).iso"), 0, make_xex(0x33333333, 1, 1, 2))

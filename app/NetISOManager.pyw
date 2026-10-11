@@ -48,7 +48,7 @@ DEFAULTS = {
 
 
 def load_settings():
-    settings = dict(DEFAULTS)
+    settings = json.loads(json.dumps(DEFAULTS))  # a copy that shares no list or dict with DEFAULTS
     try:
         with open(SETTINGS_PATH, encoding="utf-8") as f:
             settings.update(json.load(f))
@@ -158,6 +158,8 @@ class App(tk.Tk):
         self.group_discs = tk.BooleanVar(value=self.settings["group_discs"])
         ttk.Checkbutton(bar, text=tr("group_discs"), variable=self.group_discs,
                         command=self._scan).pack(side="left", padx=16)
+        self.counts = tk.StringVar()
+        ttk.Label(bar, textvariable=self.counts).pack(side="right")
         columns = ("name", "state", "title", "disc", "size", "file")
         self.tree = ttk.Treeview(games, columns=columns, show="headings", height=8,
                                  selectmode="browse")
@@ -407,6 +409,14 @@ class App(tk.Tk):
                 "%08X" % tile.title_id, disc, tr("size_gb", size=game.size / 1e9), game.path))
         if selected and self.tree.exists(selected[0]):
             self.tree.selection_set(selected[0])
+        discs = [game for tile in self.tiles for game in tile.games]
+        folders = sum(1 for game in discs if game.is_folder)
+        text = tr("counts", games=len(self.tiles), isos=len(discs) - folders, folders=folders)
+        if self.states:
+            netiso = sum(1 for tile in self.tiles if self.states.get(tile.name) == "netiso")
+            console = sum(1 for tile in self.tiles if self.states.get(tile.name) == "console")
+            text += tr("counts_states", netiso=netiso, console=console)
+        self.counts.set(text)
 
     def _next_disc(self):
         selected = self.tree.selection()
