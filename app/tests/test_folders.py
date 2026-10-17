@@ -85,6 +85,33 @@ class VirtualDiscTests(unittest.TestCase):
         self.addCleanup(self.disc.close)
         self.reader = DiscReader(self.disc)
 
+    def write_iso(self, cut=0):
+        """The virtual disc saved as a real ISO file, optionally missing its last bytes."""
+        path = os.path.join(self.dir.name, "game.iso")
+        with open(path, "wb") as f:
+            offset, step = 0, 64 * 1024 * 1024
+            while offset < self.disc.size:
+                f.write(self.disc.read(offset, min(step, self.disc.size - offset)))
+                offset += step
+            f.truncate(self.disc.size - cut)
+        return path
+
+    def test_an_iso_extracts_back_to_the_same_files(self):
+        iso = self.write_iso()
+        netiso_iso.CHECKED_PATH = None
+        netiso_iso.check_iso(iso)
+        out = os.path.join(self.dir.name, "extracted")
+        self.assertEqual(netiso_iso.extract_iso(iso, out), len(self.files))
+        for name, data in self.files.items():
+            with open(os.path.join(out, *name.split("/")), "rb") as f:
+                self.assertEqual(f.read(), data, name)
+        self.assertTrue(os.path.isdir(os.path.join(out, "EmptyDir")))
+
+    def test_a_truncated_iso_is_reported(self):
+        iso = self.write_iso(cut=SECTOR * 4)
+        with self.assertRaises(netiso_iso.IsoError):
+            netiso_iso.check_iso(iso)
+
     def test_every_file_is_listed_with_its_exact_content(self):
         seen = {}
         for path, sector, size, attributes in self.reader.walk(*self.reader.root):

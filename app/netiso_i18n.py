@@ -24,6 +24,8 @@ _TEXTS = {
     "col_state": ("État", "Status", "الحالة"),
     "col_title": ("Title ID", "Title ID", "Title ID"),
     "col_disc": ("Disque", "Disc", "القرص"),
+    "role_install": ("installation", "install", "تثبيت"),
+    "role_extra": ("contenu", "add-on", "محتوى"),
     "col_size": ("Taille", "Size", "الحجم"),
     "col_folder": ("Fichier", "File", "الملف"),
     "disc_of": ("{disc} sur {count}", "{disc} of {count}", "{disc} من {count}"),
@@ -58,11 +60,141 @@ _TEXTS = {
                      "في لعبة (Title ID {titleid})"),
     "view_unauthorized": (
         "La console refuse l'utilisateur ou le mot de passe web d'Aurora. Vérifiez-les dans la "
-        "zone Console (réglages d'Aurora, serveur HTTP).",
+        "zone Console (réglages d'Aurora, serveur HTTP). Ceux d'origine sont xboxhttp / xboxhttp : "
+        "laissez les deux champs vides pour les utiliser.",
         "The console rejects Aurora's web user or password. Check them in the Console area "
-        "(Aurora settings, HTTP server).",
+        "(Aurora settings, HTTP server). The factory ones are xboxhttp / xboxhttp: leave both "
+        "fields empty to use them.",
         "الجهاز يرفض مستخدم أو كلمة مرور ويب Aurora. تحقق منهما في منطقة الجهاز "
-        "(إعدادات Aurora، خادم HTTP)."),
+        "(إعدادات Aurora، خادم HTTP). بيانات المصنع هي xboxhttp / xboxhttp: اترك الحقلين فارغين "
+        "لاستعمالها."),
+    "test_button": ("Tester ma configuration", "Test my setup", "اختبار الإعدادات"),
+    "report_button": ("Copier un rapport de diagnostic", "Copy a diagnostic report",
+                      "نسخ تقرير التشخيص"),
+    "find_button": ("Chercher", "Find", "بحث"),
+    "xenia_button": ("Jouer sur ce PC (Xenia)", "Play on this PC (Xenia)",
+                     "اللعب على هذا الحاسوب (Xenia)"),
+    "check_title": ("Test de la configuration", "Setup test", "اختبار الإعدادات"),
+    "check_running": ("Test en cours...", "Testing...", "جاري الاختبار..."),
+    "check_done": ("Test terminé : {ok} bon(s), {warn} avertissement(s), {fail} problème(s).",
+                   "Test finished: {ok} fine, {warn} warning(s), {fail} problem(s).",
+                   "انتهى الاختبار: {ok} سليم، {warn} تنبيه، {fail} مشكلة."),
+    "check_server_ok": ("Le serveur du PC est démarré.", "The PC's server is running.",
+                        "خادم الحاسوب يعمل."),
+    "check_server_off": ("Le serveur du PC est arrêté : cliquez sur « Démarrer le serveur ».",
+                         "The PC's server is stopped: click \"Start server\".",
+                         "خادم الحاسوب متوقف: اضغط «تشغيل الخادم»."),
+    "check_network_ok": ("Réseau Windows de type {category} : le pare-feu laisse passer la console.",
+                         "Windows network type {category}: the firewall lets the console in.",
+                         "نوع شبكة Windows {category}: الجدار الناري يسمح للجهاز."),
+    "check_network_public": (
+        "Windows classe ce réseau comme Public : son pare-feu bloque la console. Paramètres > "
+        "Réseau et Internet > Ethernet (ou Wi-Fi) > Type de profil réseau > Privé.",
+        "Windows treats this network as Public: its firewall blocks the console. Settings > "
+        "Network & internet > Ethernet (or Wi-Fi) > Network profile type > Private.",
+        "يعتبر Windows هذه الشبكة عامة: الجدار الناري يحجب الجهاز. الإعدادات > الشبكة والإنترنت > "
+        "Ethernet (أو Wi-Fi) > نوع ملف تعريف الشبكة > خاصة."),
+    "check_network_unknown": ("Type de réseau Windows inconnu (impossible à lire).",
+                              "Windows network type unknown (could not be read).",
+                              "نوع شبكة Windows غير معروف (تعذرت قراءته)."),
+    "check_no_console_ip": ("Aucune adresse de console : tapez-la ou cliquez sur « Chercher ».",
+                            "No console address: type it or click \"Find\".",
+                            "لا يوجد عنوان للجهاز: اكتبه أو اضغط «بحث»."),
+    "check_console_unreachable": (
+        "La console {host} ne répond pas. Elle doit être allumée sur Aurora, sur le même réseau. "
+        "Son adresse a peut-être changé : cliquez sur « Chercher ».",
+        "The console {host} does not answer. It must be on, in Aurora, on the same network. "
+        "Its address may have changed: click \"Find\".",
+        "الجهاز {host} لا يجيب. يجب أن يكون مشغلا على Aurora وعلى نفس الشبكة. ربما تغير عنوانه: "
+        "اضغط «بحث»."),
+    "check_ftp_login": ("La console refuse l'utilisateur ou le mot de passe FTP.",
+                        "The console rejects the FTP user or password.",
+                        "الجهاز يرفض مستخدم أو كلمة مرور FTP."),
+    "check_console_ok": ("Console {host} joignable, connexion FTP acceptée.",
+                         "Console {host} reachable, FTP login accepted.",
+                         "الجهاز {host} متاح، تم قبول دخول FTP."),
+    "check_no_launch_ini": ("Pas de launch.ini sur la console : DashLaunch est-il installé ?",
+                            "No launch.ini on the console: is DashLaunch installed?",
+                            "لا يوجد launch.ini على الجهاز: هل DashLaunch مثبت؟"),
+    "check_no_plugin_slot": ("launch.ini n'a plus de place pour un plugin.",
+                             "launch.ini has no free plugin slot.",
+                             "لا توجد خانة إضافة فارغة في launch.ini."),
+    "check_plugin_not_loaded": ("{path} ne charge pas NetISO.xex : cliquez sur « Installer le plugin ».",
+                                "{path} does not load NetISO.xex: click \"Install the plugin\".",
+                                "{path} لا يحمل NetISO.xex: اضغط «تثبيت الإضافة»."),
+    "check_plugin_missing": ("Le plugin {path} n'est pas sur la console : cliquez sur « Installer le plugin ».",
+                             "The plugin {path} is not on the console: click \"Install the plugin\".",
+                             "الإضافة {path} غير موجودة على الجهاز: اضغط «تثبيت الإضافة»."),
+    "check_plugin_ok": ("Plugin {path} présent, version d'origine de cOz.",
+                        "Plugin {path} present, cOz's original version.",
+                        "الإضافة {path} موجودة، النسخة الأصلية من cOz."),
+    "check_plugin_other": (
+        "Le plugin {path} n'est pas la version fournie : le bouton Guide et le chargement rapide "
+        "peuvent ne pas marcher.",
+        "The plugin {path} is not the version shipped with the app: the Guide button and fast "
+        "loading may not work.",
+        "الإضافة {path} ليست النسخة المرفقة: قد لا يعمل زر Guide والتحميل السريع."),
+    "check_address_missing": ("Le plugin ne connaît pas l'adresse du PC : cliquez sur « Installer le plugin ».",
+                              "The plugin does not know the PC's address: click \"Install the plugin\".",
+                              "الإضافة لا تعرف عنوان الحاسوب: اضغط «تثبيت الإضافة»."),
+    "check_address_wrong": (
+        "Le plugin cherche le PC à {found}, mais le PC est à {ip}. NetISO Manager le corrige "
+        "tout seul en quelques minutes, ou cliquez sur « Installer le plugin ». Puis redémarrez la console.",
+        "The plugin looks for the PC at {found}, but the PC is at {ip}. NetISO Manager fixes it "
+        "on its own within minutes, or click \"Install the plugin\". Then restart the console.",
+        "الإضافة تبحث عن الحاسوب في {found} بينما عنوانه {ip}. سيصححه NetISO Manager خلال دقائق، "
+        "أو اضغط «تثبيت الإضافة». ثم أعد تشغيل الجهاز."),
+    "check_address_ok": ("Le plugin cherche bien le PC à {ip}.", "The plugin looks for the PC at {ip}, as it should.",
+                         "الإضافة تبحث عن الحاسوب في {ip} كما يجب."),
+    "check_ftp_error": ("Erreur FTP : {error}", "FTP error: {error}", "خطأ FTP: {error}"),
+    "check_web_ok": ("Serveur web d'Aurora accessible (écran de la console disponible).",
+                     "Aurora's web server reachable (console screen available).",
+                     "خادم ويب Aurora متاح (شاشة الجهاز متوفرة)."),
+    "check_web_failed": (
+        "Serveur web d'Aurora injoignable ou identifiants refusés : seule la fenêtre « écran de "
+        "la console » en dépend.",
+        "Aurora's web server not reachable or login refused: only the console screen window "
+        "needs it.",
+        "خادم ويب Aurora غير متاح أو رُفض الدخول: نافذة شاشة الجهاز وحدها تحتاجه."),
+    "report_copied": (
+        "Rapport copié dans le presse-papiers. Il ne contient ni mot de passe, ni adresse "
+        "complète, ni nom d'utilisateur : collez-le dans votre message.",
+        "Report copied to the clipboard. It holds no password, no full address and no user "
+        "name: paste it in your message.",
+        "تم نسخ التقرير. لا يحتوي على كلمات مرور ولا عناوين كاملة ولا اسم مستخدم: الصقه في رسالتك."),
+    "find_running": ("Recherche de la console sur le réseau...", "Looking for the console on the network...",
+                     "جاري البحث عن الجهاز في الشبكة..."),
+    "find_none": (
+        "Aucune console trouvée. Elle doit être allumée sur Aurora, avec son serveur FTP actif, "
+        "sur le même réseau que ce PC.",
+        "No console found. It must be on, in Aurora, with its FTP server enabled, on the same "
+        "network as this PC.",
+        "لم يتم العثور على أي جهاز. يجب أن يكون مشغلا على Aurora مع تفعيل خادم FTP وعلى نفس شبكة "
+        "هذا الحاسوب."),
+    "find_found": ("Console trouvée : {host}", "Console found: {host}", "تم العثور على الجهاز: {host}"),
+    "find_others": ("Autres appareils possibles : {hosts}", "Other possible devices: {hosts}",
+                    "أجهزة محتملة أخرى: {hosts}"),
+    "xenia_no_game": ("Sélectionnez d'abord un jeu dans la liste.", "Select a game in the list first.",
+                      "اختر لعبة من القائمة أولا."),
+    "xenia_pick": ("Où est xenia_canary.exe ?", "Where is xenia_canary.exe?", "أين يوجد xenia_canary.exe؟"),
+    "xenia_started": ("Xenia lancé : {name}. Tous les jeux ne fonctionnent pas dans Xenia.",
+                      "Xenia started: {name}. Not every game runs in Xenia.",
+                      "تم تشغيل Xenia: {name}. ليست كل الألعاب تعمل في Xenia."),
+    "xenia_failed": ("Impossible de lancer Xenia : {error}", "Could not start Xenia: {error}",
+                     "تعذر تشغيل Xenia: {error}"),
+    "xenia_no_target": ("fichier introuvable : {path}", "file not found: {path}", "الملف غير موجود: {path}"),
+    "update_available": (
+        "Une nouvelle version de NetISO Manager est disponible : {tag} (vous avez {current}).\n\n"
+        "Ouvrir la page de téléchargement ?",
+        "A new version of NetISO Manager is available: {tag} (you have {current}).\n\n"
+        "Open the download page?",
+        "يتوفر إصدار جديد من NetISO Manager: {tag} (لديك {current}).\n\nفتح صفحة التنزيل؟"),
+    "awake_on": ("Partie en cours : le PC ne se mettra pas en veille.",
+                 "Game in progress: the PC will not go to sleep.",
+                 "لعبة جارية: لن يدخل الحاسوب في وضع السكون."),
+    "awake_off": ("Plus de lecture depuis 10 minutes : le PC peut de nouveau se mettre en veille.",
+                  "No reads for 10 minutes: the PC may sleep again.",
+                  "لا قراءة منذ 10 دقائق: يمكن للحاسوب الدخول في السكون من جديد."),
     "view_unreachable": (
         "Console injoignable ({error}). Elle doit être allumée, avec le serveur HTTP activé dans "
         "les réglages d'Aurora. Nouvel essai...",
@@ -220,6 +352,15 @@ _TEXTS = {
     "tile_removed": ("Tuile retirée : {name}", "Tile removed: {name}", "تم حذف الاختصار: {name}"),
     "mkdir_refused": ("création de {path} refusée ({error})", "cannot create {path} ({error})",
                       "تعذر إنشاء {path} ({error})"),
+    "not_a_package": ("{path} n'est ni une mise à jour de jeu ni un DLC",
+                      "{path} is neither a title update nor a DLC",
+                      "{path} ليس تحديثا للعبة ولا محتوى إضافيا"),
+    "aurora_db_missing": ("Base d'Aurora illisible : Aurora doit être ouvert sur la console.",
+                          "Aurora's database cannot be read: Aurora must be open on the console.",
+                          "تعذرت قراءة قاعدة Aurora: يجب أن يكون Aurora مفتوحا على الجهاز."),
+    "launch_drive_unsupported": ("Lancement à distance impossible depuis le disque {drive}.",
+                                 "Remote launch is not possible from drive {drive}.",
+                                 "التشغيل عن بعد غير ممكن من القرص {drive}."),
     "verify_failed": ("{path} est différent sur la console après l'envoi",
                       "{path} differs on the console after upload",
                       "الملف {path} مختلف على الجهاز بعد الإرسال"),
@@ -251,6 +392,52 @@ _TEXTS = {
                         "تم إرسال الإضافة: {path}"),
     "address_written": ("Adresse du PC {ip} écrite dans {path}", "PC address {ip} written to {path}",
                         "تمت كتابة عنوان الحاسوب {ip} في {path}"),
+    "address_fixed_log": (
+        "L'adresse du PC a changé ({old} -> {ip}) : {path} corrigé. Redémarrez la console.",
+        "The PC's address changed ({old} -> {ip}): {path} corrected. Restart the console.",
+        "تغير عنوان الحاسوب ({old} -> {ip}): تم تصحيح {path}. أعد تشغيل الجهاز."),
+    "network_public_log": (
+        "Windows classe ce réseau comme Public : son pare-feu bloque la console.",
+        "Windows treats this network as Public: its firewall blocks the console.",
+        "يعتبر Windows هذه الشبكة عامة: جداره الناري يحجب الجهاز."),
+    "aurora_refreshed": ("Aurora relancé pour mettre à jour sa liste de jeux.",
+                         "Aurora restarted to bring its game list up to date.",
+                         "تمت إعادة تشغيل Aurora لتحديث قائمة الألعاب."),
+    "network_public_ask": (
+        "Le passer en Privé maintenant ? Windows va demander l'autorisation administrateur. "
+        "Répondez non si vous êtes sur un réseau public (hôtel, café...).",
+        "Set it to Private now? Windows will ask for administrator permission. Answer no if you "
+        "are on a public network (hotel, café...).",
+        "تحويلها إلى خاصة الآن؟ سيطلب Windows إذن المسؤول. أجب بلا إذا كنت على شبكة عامة "
+        "(فندق، مقهى...)."),
+    "network_private_asked": ("Demande envoyée à Windows : passage du réseau en Privé.",
+                              "Request sent to Windows: network set to Private.",
+                              "تم إرسال الطلب إلى Windows: تحويل الشبكة إلى خاصة."),
+    "network_public_dialog": (
+        "Windows classe le réseau de ce PC comme « Public ». Dans ce cas son pare-feu bloque la "
+        "console, et les jeux s'arrêtent avec « PC not reachable ».\n\nSi c'est votre réseau "
+        "domestique : Paramètres Windows > Réseau et Internet > Ethernet (ou Wi-Fi) > Type de "
+        "profil réseau > Privé.\n\nWindows le fait parfois tout seul après un redémarrage de la box.",
+        "Windows treats this PC's network as \"Public\". Its firewall then blocks the console, "
+        "and games stop with \"PC not reachable\".\n\nIf this is your home network: Windows "
+        "Settings > Network & internet > Ethernet (or Wi-Fi) > Network profile type > Private."
+        "\n\nWindows sometimes does this on its own after the router restarts.",
+        "يعتبر Windows شبكة هذا الحاسوب «عامة». عندها يحجب جداره الناري الجهاز وتتوقف الألعاب "
+        "برسالة «PC not reachable».\n\nإذا كانت هذه شبكة منزلك: إعدادات Windows > الشبكة "
+        "والإنترنت > Ethernet (أو Wi-Fi) > نوع ملف تعريف الشبكة > خاصة.\n\nقد يفعل Windows ذلك "
+        "تلقائيا بعد إعادة تشغيل الموجه."),
+    "address_fixed_dialog": (
+        "L'adresse de ce PC sur le réseau a changé (souvent après un redémarrage de la box). "
+        "NetISO Manager vient de l'écrire sur la console.\n\nRedémarrez la console pour que les "
+        "jeux se lancent de nouveau.\n\nPour éviter que cela se reproduise, réservez une adresse "
+        "fixe pour ce PC et pour la console dans les réglages de votre box.",
+        "This PC's address on the network changed (often after the router restarts). NetISO "
+        "Manager has just written it on the console.\n\nRestart the console so games launch "
+        "again.\n\nTo stop this from happening again, reserve a fixed address for this PC and "
+        "for the console in your router's settings.",
+        "تغير عنوان هذا الحاسوب على الشبكة (غالبا بعد إعادة تشغيل الموجه). كتبه NetISO Manager "
+        "على الجهاز الآن.\n\nأعد تشغيل الجهاز لكي تعمل الألعاب من جديد.\n\nلتجنب تكرار ذلك، "
+        "احجز عنوانا ثابتا لهذا الحاسوب وللجهاز في إعدادات الموجه."),
     "ini_updated": ("{path} mis à jour (copie : launch.ini.netiso.bak)",
                     "{path} updated (backup: launch.ini.netiso.bak)",
                     "تم تحديث {path} (نسخة احتياطية: launch.ini.netiso.bak)"),
@@ -279,6 +466,12 @@ _TEXTS = {
     # ISO reading
     "no_partition": ("partition de jeu introuvable", "game partition not found",
                      "لم يتم العثور على قسم اللعبة"),
+    "iso_truncated": ("ISO incomplet : le fichier est plus court que le disque (téléchargement ou "
+                      "copie interrompu). Le jeu planterait sur la console.",
+                      "incomplete ISO: the file is shorter than the disc (interrupted download or "
+                      "copy). The game would crash on the console.",
+                      "ملف ISO ناقص: الملف أقصر من القرص (تنزيل أو نسخ متوقف). ستتعطل اللعبة على "
+                      "الجهاز."),
     "file_missing": ("{name} absent de la racine du disque", "{name} missing from the disc root",
                      "الملف {name} غير موجود في جذر القرص"),
     "not_xex2": ("default.xex n'est pas un fichier XEX2", "default.xex is not an XEX2 file",

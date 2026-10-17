@@ -87,6 +87,7 @@ class WindowTests(unittest.TestCase):
         self.manager = importlib.util.module_from_spec(spec)
         loader.exec_module(self.manager)
         self.manager.SETTINGS_PATH = os.path.join(self.dir.name, "settings.json")
+        self.manager.netiso_iso.CHECKED_PATH = os.path.join(self.dir.name, "checked.json")
         self.manager.save_settings(dict(self.manager.DEFAULTS, folders=[self.isos],
                                         autostart_server=False, welcome_shown=True,
                                         language="fr"))

@@ -14,6 +14,9 @@
 #include "xkelib.h"
 
 static const DWORD kDiscTimeoutMs = 30000;
+// The toast is drawn by the system while this launcher is still running: leaving
+// at once to the dashboard dropped it (user report 2026-10-14, "it crashes").
+static const DWORD kToastMs = 4000;
 static const DWORD kDiscChoiceMs = 2500;
 static const char kNoServerEntry[] = "No Server!";
 static const WCHAR kDefaultMessage[] = L"NetISO: PC not reachable. Open NetISO Manager.";
@@ -240,6 +243,7 @@ static bool WaitForDisc(DWORD timeoutMs)
 static void FailToDashboard(const WCHAR *message)
 {
 	XNotifyQueueUI(XNOTIFYUI_TYPE_GENERIC, 0, 2, (PWCHAR)message, NULL);
+	Sleep(kToastMs);
 	Log("returning to dashboard");
 	XLaunchNewImage(XLAUNCH_KEYWORD_DEFAULT_APP, 0);
 }
@@ -251,7 +255,7 @@ void __cdecl main()
 
 	g_start = GetTickCount();
 	DeleteFile("game:\\netiso_stub.log");
-	Log("netiso launcher 1.0");
+	Log("netiso launcher 1.1");
 	wcscpy(message, kDefaultMessage);
 
 	int discs = 1;

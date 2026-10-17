@@ -236,11 +236,12 @@ def send_tile(ftp, remote_root, name, files):
         write_file(ftp, "%s/%s" % (tile_dir, filename), data)
 
 
-def sync(settings, tiles, stub, log):
+def sync(settings, tiles, stub, log, pc_ip=None, address_fixed=None):
     """Brings the console's tiles in line with the PC's ISOs.
 
     Returns {tile name: state} where state is "console" (installed there, no
-    tile) or "netiso" (tile sent).
+    tile) or "netiso" (tile sent). With pc_ip, also corrects the address the
+    plugin uses (check_pc_address) and calls address_fixed(old) when it did.
     """
     remote_root = "/" + settings["remote_root"].strip("/")
     tiles_scan_path(remote_root)  # refuses a drive root: tiles need a folder of their own
@@ -248,6 +249,10 @@ def sync(settings, tiles, stub, log):
                      if f.strip("/")} | {remote_root.strip("/").split("/")[0]})
     ftp = connect(settings["console_ip"], settings["ftp_user"], settings["ftp_password"])
     try:
+        if pc_ip:
+            old = check_pc_address(ftp, pc_ip, log)
+            if old is not None and address_fixed:
+                address_fixed(old)
         log(tr("looking_installed"))
         installed = installed_games(ftp, settings["console_game_folders"], drives, remote_root)
         log(tr("installed_count", count=len(installed)))
@@ -262,6 +267,7 @@ def sync(settings, tiles, stub, log):
                 netiso_iso.FAST_REQUEST_SIZE if settings.get("fast_read", True) else 0))
             log("  %d/%d  %s" % (number, len(to_send), tile.name))
         prepare_cleanup(ftp, remote_root, log)
+        install_aurora_scripts(ftp, remote_root)
         sent = {tile.name for tile in to_send}
         return {tile.name: "netiso" if tile.name in sent else "console" for tile in tiles}
     except (OSError, ftplib.Error) as error:
@@ -467,6 +473,216 @@ def bundled_plugin():
 
 def is_known_plugin(data):
     return hashlib.sha256(data).hexdigest() == PLUGIN_SHA256
+
+
+# ---- telling Aurora whether the PC is there
+
+MARKER_NAME = "pc_online.txt"
+FILTER_SCRIPT = "/Game/User/Scripts/Content/Filters/NetISO.lua"
+SUBTITLE_SCRIPT = "/Game/User/Scripts/Content/Subtitles/NetISO.lua"
+
+
+def _aurora_paths(remote_root):
+    """("Hdd1:\\\\NetISO\\\\pc_online.txt", "\\\\netiso\\\\") as Lua string literals for a tiles folder."""
+    drive, _, folder = remote_root.strip("/").partition("/")
+    marker = "%s:\\%s\\%s" % (drive, folder.replace("/", "\\"), MARKER_NAME)
+    prefix = "\\%s\\" % folder.replace("/", "\\").lower()
+    lua = lambda text: text.replace("\\", "\\\\").replace('"', '\\"')
+    return lua(marker), lua(prefix), len(prefix)
+
+
+def aurora_scripts(remote_root):
+    """Lua for Aurora's game list: a subtitle showing where a game plays from, and a
+    filter hiding the PC's games while NetISO Manager is closed.
+
+    The PC is taken as "there" while the marker file exists: the app writes it
+    while it runs and deletes it when it closes. After a crash or a power cut
+    the marker stays, the games stay visible, and the launcher's "PC not
+    reachable" message remains the last safety net. If Aurora does not give
+    these scripts file access, they fall back to showing every game.
+    """
+    marker, prefix, length = _aurora_paths(remote_root)
+    common = (
+        '-- Written by NetISO Manager. Safe to delete: NetISO Manager writes it again.\n'
+        'local function NetIsoGame(Content)\n'
+        '\treturn string.sub(string.lower(Content.Directory or ""), 1, %d) == "%s"\n'
+        'end\n'
+        'local function PcOnline()\n'
+        '\tlocal ok, online = pcall(FileSystem.FileExists, "%s")\n'
+        '\treturn (not ok) or online\n'
+        'end\n' % (length, prefix, marker))
+    subtitle = common + (
+        'GameListSubtitles["NetISO"] = function(Content)\n'
+        '\tif not NetIsoGame(Content) then return "On the console" end\n'
+        '\tif PcOnline() then return "Played from the PC" end\n'
+        '\treturn "PC off: start NetISO Manager"\n'
+        'end\n')
+    filter_ = common + (
+        'GameListFilterCategories.User["%s"] = function(Content)\n'
+        '\treturn (not NetIsoGame(Content)) or PcOnline()\n'
+        'end\n'
+        '-- Hides the discs that are not a game: installation discs and voice or texture\n'
+        '-- packs (often the generic Title ID FFED2000: the Resident Evil 6 voice pack shows\n'
+        '-- as "RESIDENT EVIL 6" while the game is "BIOHAZARD 6"). Game discs all stay:\n'
+        '-- Battlefield 4 runs its campaign from disc 2, launched on its own.\n'
+        'GameListFilterCategories.User["%s"] = function(Content)\n'
+        '\tlocal id = Content.TitleId or 0\n'
+        '\tif id < 0 then id = id + 4294967296 end\n'
+        '\tif id == 4293730304 then return false end\n'
+        '\tlocal folder = string.lower(Content.Directory or "")\n'
+        '\tif string.find(folder, "game disc", 1, true) then return true end\n'
+        '\tfor _, word in ipairs({ "install", "voice", "language", "texture", "hd content" }) do\n'
+        '\t\tif string.find(folder, word, 1, true) then return false end\n'
+        '\tend\n'
+        '\treturn true\n'
+        'end\n' % (FILTER_NAME, DISC_FILTER_NAME))
+    return subtitle.encode("ascii"), filter_.encode("ascii")
+
+
+FILTER_NAME = "NetISO: hide PC games when the PC is off"
+DISC_FILTER_NAME = "NetISO: hide install and voice discs"
+# Names this filter had during development: views saved with them are updated by the setup script.
+OLD_DISC_FILTER_NAMES = ("NetISO: one entry per game",)
+QUICK_VIEW_NAME = "Available games"
+SETUP_SCRIPT = "/Game/User/Scripts/Utility/NetISO Setup/Main.lua"
+
+
+def setup_script():
+    """Optional one-run Aurora script: makes the "Available games" quick view (the
+    NetISO filter, kept across restarts, unlike a filter ticked by hand) the one
+    Aurora opens on. Quick views live in settings.db; Aurora saves a user filter
+    as "User.<name>" with flags 262144 (seen on a real console, 2026-10-17)."""
+    method = "User.%s;AND;User.%s" % (FILTER_NAME, DISC_FILTER_NAME)
+    # Views saved earlier: made by hand with the first filter only, or with older names.
+    older = "', '".join(["User." + FILTER_NAME] + ["User.%s;AND;User.%s" % (FILTER_NAME, name)
+                                                   for name in OLD_DISC_FILTER_NAMES])
+    return (
+        'scriptTitle = "NetISO Setup"\n'
+        'scriptAuthor = "NetISO Manager"\n'
+        'scriptVersion = 1\n'
+        'scriptDescription = "Opens Aurora on the games you can play now: PC games are hidden '
+        'while NetISO Manager is closed. Run it once."\n'
+        'scriptPermissions = { "sql", "settings" }\n'
+        '\n'
+        'local function ViewId()\n'
+        '\tfor _, row in pairs(Sql.ExecuteFetchRows("SELECT Id FROM Config.QuickViews WHERE '
+        'FilterMethod IN (\'%(method)s\', \'%(older)s\')")) do\n'
+        '\t\treturn row.Id\n'
+        '\tend\n'
+        '\treturn nil\n'
+        'end\n'
+        '\n'
+        'function main()\n'
+        '\tlocal id = ViewId()\n'
+        '\tif id == nil then\n'
+        '\t\tSql.Execute("INSERT INTO Config.QuickViews (DisplayName, SortMethod, FilterMethod, '
+        'Flags, CreatorXUID, OrderIndex, IconHash) SELECT \'%(name)s\', \'Title Name\', '
+        '\'%(method)s\', 262144, \'\', IFNULL(MAX(OrderIndex), 0) + 1, \'\' FROM Config.QuickViews")\n'
+        '\t\tid = ViewId()\n'
+        '\telse\n'
+        '\t\tSql.Execute("UPDATE Config.QuickViews SET DisplayName = \'%(name)s\', FilterMethod = '
+        '\'%(method)s\' WHERE Id = " .. id)\n'
+        '\tend\n'
+        '\tif id == nil then\n'
+        '\t\tScript.ShowMessageBox("NetISO Setup", "The quick view could not be created.", "OK")\n'
+        '\t\treturn\n'
+        '\tend\n'
+        '\tSettings.SetSystem("DefaultQuickView", tostring(id))\n'
+        '\tlocal answer = Script.ShowMessageBox("NetISO Setup", "Aurora will now open on '
+        '\\"%(name)s\\". Restart Aurora?", "Yes", "No")\n'
+        '\tif answer.Button == 1 then\n'
+        '\t\tAurora.Restart()\n'
+        '\tend\n'
+        'end\n' % {"method": method, "older": older, "name": QUICK_VIEW_NAME}).encode("ascii")
+
+
+def install_aurora_scripts(ftp, remote_root):
+    """Puts the subtitle, filter and setup scripts in Aurora's script folders (rewritten each sync)."""
+    subtitle, filter_ = aurora_scripts(remote_root)
+    for path, data in ((SUBTITLE_SCRIPT, subtitle), (FILTER_SCRIPT, filter_),
+                       (SETUP_SCRIPT, setup_script())):
+        _ensure_dir(ftp, path.rsplit("/", 1)[0])
+        write_file(ftp, path, data)
+
+
+def set_pc_online(settings, online):
+    """Writes or removes the marker the Aurora scripts look for. Raises ConsoleError when
+    the console cannot be reached."""
+    remote_root = "/" + settings["remote_root"].strip("/")
+    tiles_scan_path(remote_root)
+    try:
+        ftp = connect(settings["console_ip"], settings["ftp_user"], settings["ftp_password"])
+    except (OSError, ftplib.Error) as error:
+        raise ConsoleError(tr("ftp_error", error=error))
+    try:
+        path = remote_root + "/" + MARKER_NAME
+        if online:
+            write_file(ftp, path, b"NetISO Manager is running on the PC.\r\n")
+        else:
+            try:
+                ftp.delete(path)
+            except ftplib.error_perm:
+                pass  # already gone
+    except (OSError, ftplib.Error) as error:
+        raise ConsoleError(tr("ftp_error", error=error))
+    finally:
+        try:
+            ftp.quit()
+        except (OSError, ftplib.Error):
+            pass
+
+
+def check_pc_address(ftp, pc_ip, log):
+    """Rewrites NetISO.xex.txt when it no longer holds this PC's address.
+
+    A router that hands out addresses again (after a restart) can give the PC
+    a new one: the plugin then keeps asking the old address and every NetISO
+    game goes back to Aurora with "PC server not reachable". Only acts when
+    launch.ini already loads NetISO.xex and the plugin file is there. Returns
+    the address that was replaced ("" when the file was missing), or None
+    when nothing had to change.
+    """
+    ini = None
+    for candidate in LAUNCH_INI_PATHS:
+        ini = read_file(ftp, candidate)
+        if ini is not None:
+            break
+    if ini is None:
+        return None
+    try:
+        plugin_ini_path, new_text = plan_launch_ini(ini.decode("latin-1"))
+    except ConsoleError:
+        return None
+    if new_text is not None:
+        return None                      # not installed: the setup button handles that
+    plugin_path = ini_to_ftp_path(plugin_ini_path)
+    folder, filename = plugin_path.rsplit("/", 1)
+    if filename.lower() not in {n.lower() for n, d in list_dir(ftp, folder) if not d}:
+        return None
+    current = read_file(ftp, plugin_path + ".txt")
+    old = current.decode("latin-1").strip() if current is not None else ""
+    if old == pc_ip:
+        return None
+    write_file(ftp, plugin_path + ".txt", pc_ip.encode("ascii"))
+    log(tr("address_fixed_log", old=old or "-", ip=pc_ip, path=plugin_ini_path + ".txt"))
+    return old
+
+
+def fix_pc_address(settings, pc_ip, log):
+    """check_pc_address on its own connection. Raises ConsoleError when the console is not reachable."""
+    try:
+        ftp = connect(settings["console_ip"], settings["ftp_user"], settings["ftp_password"])
+    except (OSError, ftplib.Error) as error:
+        raise ConsoleError(tr("ftp_error", error=error))
+    try:
+        return check_pc_address(ftp, pc_ip, log)
+    except (OSError, ftplib.Error) as error:
+        raise ConsoleError(tr("ftp_error", error=error))
+    finally:
+        try:
+            ftp.quit()
+        except (OSError, ftplib.Error):
+            pass
 
 
 def setup_console(settings, pc_ip, plugin_file, log):

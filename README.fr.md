@@ -24,6 +24,17 @@ Chaque ISO du PC apparait dans Aurora comme un jeu installe, avec sa pochette et
 - Chargements rapides: environ deux fois le debit de NetISO d'origine (8,9 Mo/s mesures contre 4,1).
 - Affichage de l'ecran de la console dans une fenetre du PC, pour suivre l'installation sans changer d'entree HDMI.
 - Affichage du jeu en cours et du debit, demarrage avec Windows.
+- "Tester ma configuration": verifie le serveur, le type de reseau Windows, la console, le plugin et l'adresse qu'il utilise, et dit quoi corriger. Copie un rapport de diagnostic pour les forums, sans mot de passe, adresse ni nom d'utilisateur.
+- Recherche de la console sur le reseau: plus d'adresse IP a taper.
+- Suivi de l'adresse du PC: quand la box en donne une nouvelle au PC, l'application l'ecrit seule sur la console.
+- Le PC ne se met pas en veille pendant une partie.
+- Lancement d'un jeu sur le PC dans l'emulateur Xenia (non fourni), en un clic.
+- Vue "Available games" dans Aurora: les jeux du PC sont masques quand le serveur ne tourne pas, ainsi que les disques d'installation et les packs de voix. Mise en place par un script Aurora facultatif, "NetISO Setup". L'application relance Aurora quand le serveur demarre ou s'arrete, seulement si Aurora est a l'ecran, pour que la liste suive.
+- Les tuiles multi-disques demarrent sur le disque de jeu, pas sur un disque d'installation ou de voix.
+- Verification de chaque ISO: les fichiers incomplets (telechargement ou copie interrompu) sont signales avant d'arriver sur la console.
+- Proposition de passer en "Prive" un reseau Windows classe "Public" (le pare-feu bloque sinon la console), par la fenetre administrateur de Windows.
+- Numero de version dans le titre de la fenetre. Version portable (zip) a cote de l'installateur.
+- Avis de nouvelle version. Cette verification, une requete a GitHub au demarrage, est le seul acces de l'application a Internet; rien sur vous n'est envoye.
 - Interface en francais, anglais et arabe.
 
 ## Prerequis

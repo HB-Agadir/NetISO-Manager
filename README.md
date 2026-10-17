@@ -25,6 +25,17 @@ Every ISO on the PC shows up in Aurora like an installed game, with its cover an
 - Fast loading: about twice the read speed of the stock NetISO setup (8.9 MB/s measured against 4.1).
 - Shows the console's screen in a window on the PC, so you can follow the setup without switching HDMI inputs.
 - Shows the game being played and the transfer rate; can start with Windows.
+- "Test my setup": checks the server, the Windows network type, the console, the plugin and the address it uses, and says what to fix. Copies a diagnostic report for forum posts, without passwords, addresses or user name.
+- Finds the console on the network, so there is no IP address to type.
+- Follows the PC's address: when the router gives the PC a new one, the app writes it on the console by itself.
+- Keeps the PC awake while a game is being played.
+- Plays a game on the PC in the Xenia emulator (not included) in one click.
+- "Available games" view in Aurora: the PC's games are hidden while the server is not running, and installation discs and voice packs are hidden. Set up by one optional Aurora script, "NetISO Setup". The app restarts Aurora when the server starts or stops, only when Aurora is on screen, so the list follows.
+- Multi-disc tiles start on the game disc, not on an installation or voice disc.
+- Checks every ISO and reports incomplete ones (interrupted download or copy) before they reach the console.
+- Offers to set a Windows network filed as "Public" to "Private" (the firewall blocks the console otherwise), through Windows' own administrator prompt.
+- Version number in the window title. Portable zip next to the installer.
+- Tells you when a new version is out. That check, a request to GitHub at start-up, is the app's only Internet access; nothing about you is sent.
 - Interface in English, French and Arabic.
 
 ## Download

@@ -64,8 +64,7 @@
 <div class="step"><b class="n">Step 3.</b> <b>Link the console.</b>
 <ol>
   <li>Turn the console on and leave it in Aurora.</li>
-  <li>Find its IP address in the network settings of the console or of Aurora (example: <code>192.168.1.50</code>).</li>
-  <li>In area 3 of NetISO Manager, type that address in "Console IP address".</li>
+  <li>In area 3 of NetISO Manager, click <b>"Find"</b> next to "Console IP address": the software looks for the console on your network and fills in its address. If it finds nothing, read the address in the network settings of the console or of Aurora (example: <code>192.168.1.50</code>) and type it.</li>
   <li>Click <b>"Install the plugin on the console"</b> and confirm. The software sends the plugin, gives it your PC's address and adds it to the console's startup.</li>
   <li><b>Restart the console.</b></li>
 </ol>
@@ -100,11 +99,31 @@
 <p>During setup you do not need to switch HDMI inputs or look at the TV. Click <b>"Show the console's screen"</b> in area 3: a window shows what the console displays, with a new image about every three seconds. It is a help to follow the steps, not a video: you still need the controller to move around Aurora.</p>
 <p>This uses Aurora's web server. If it asks for a user and password, they are the ones in Aurora's settings, under HTTP server (<code>xboxhttp</code> / <code>xboxhttp</code> by default).</p>
 
+<h3>Only the games you can play: the "Available games" view</h3>
+<p>Each "Sync with Aurora" also puts three small scripts in Aurora. Run one of them once, and Aurora opens on a view of the games you can actually play:</p>
+<ol>
+  <li>In Aurora, open the utility scripts and run <b>"NetISO Setup"</b>.</li>
+  <li>Answer "Yes": Aurora restarts.</li>
+</ol>
+<p>From then on, Aurora opens on the <b>"Available games"</b> view:</p>
+<ul>
+  <li>the games played from the PC are hidden while NetISO Manager's server is not running, and come back when it runs;</li>
+  <li>installation discs and voice packs, which are not games, are hidden. Every game disc stays visible: some games, such as Battlefield 4, start their campaign from disc 2.</li>
+</ul>
+<p>Aurora only applies its filters when it builds its list. So when the server starts or stops, NetISO Manager restarts Aurora for you, but only if Aurora is on screen: never during a game.</p>
+<p>To see everything again, pick the "Show All" view in Aurora's Quick View menu. You can also choose the <b>"NetISO"</b> subtitle in Aurora: under each game it says whether it plays from the console or the PC, or that the PC is off.</p>
+<p>If the PC shuts down suddenly (power cut, crash), the PC games stay visible until NetISO Manager starts again. The console then shows "PC not reachable" when you launch one.</p>
+
+<h3>Playing on the PC with Xenia</h3>
+<p>Your games can also run on the PC in the Xenia emulator, which you install yourself. Select a game in area 2 and click <b>"Play on this PC (Xenia)"</b>. The first time, show the software where <code>xenia_canary.exe</code> is. Not every game runs in Xenia, and it needs a capable PC: a game that fails there may still work fine on the console.</p>
+
 <h3>Fast loading</h3>
 <p>"Fast loading" is ticked by default: games load about twice as fast. If a game misbehaves, untick it, click "Sync with Aurora", then restart the console.</p>
 
 <h3>Set and forget</h3>
 <p>Tick "Start the server when the app opens" and "Start with Windows". The software then starts with your PC, minimized.</p>
+<p>While the console is reading a game, the PC does not go to sleep: a PC that sleeps in the middle of a game makes the game crash. Ten minutes after the last read, Windows may sleep again as usual.</p>
+<p>If your router gives the PC a new address (often after it restarts), NetISO Manager notices it within a few minutes and writes the new one on the console. It then asks you to restart the console.</p>
 
 <h2 id="discs">Multi-disc games</h2>
 <p>A game that spans several discs takes a single slot in Aurora. You pick the disc with the controller as you launch the game:</p>
@@ -117,24 +136,28 @@
 <p>You have about two seconds after pressing <kbd>A</kbd> to pull the trigger. The easiest way is to hold it as soon as the screen goes black.</p>
 <p>When a game asks for disc 2: go back to Aurora, then launch the same game again while holding the right trigger. Your save continues on the new disc.</p>
 <p>You can also pick the disc on the PC: select the game in area 2 and click "Switch disc".</p>
+<p>A tile starts on the game disc, not on an installation or voice disc: for Watch_Dogs, disc 2 (the game) rather than disc 1 (the installation). The list shows each disc's role, for example "1 of 2 (install)". To install from that disc, launch the tile holding the left trigger.</p>
 <h3>Prefer to see every disc in Aurora?</h3>
 <p>Untick "One tile per multi-disc game" under the game list, then click "Sync with Aurora" and run a scan. Each disc then has its own slot in Aurora and launches directly, without the triggers.</p>
 
 <h2 id="trouble">Troubleshooting</h2>
+<p>Start with <b>"Test my setup"</b> in area 3. It checks the server, the Windows network, the console, the plugin and the address the plugin uses, and says what to do for each problem. If you ask for help on a forum, click <b>"Copy a diagnostic report"</b> in that window and paste the text in your message: it holds no password, no full address and no user name.</p>
 <table>
   <tr><th>What you see</th><th>What to do</th></tr>
+  <tr><td>The console shows "PC not reachable"</td><td>Run "Test my setup". The usual causes: the server is stopped, Windows treats your network as Public (Windows Settings &gt; Network &amp; internet &gt; Ethernet or Wi-Fi &gt; Network profile type &gt; Private), or the PC's address changed and the console has not been restarted yet.</td></tr>
   <tr><td>The game does not start and you are back in Aurora</td><td>Check that the PC is on, NetISO Manager is open and area 4 says "Running". The log should show "Console connected".</td></tr>
   <tr><td>The log never shows "Console connected"</td><td>Redo step 3 and restart the console. Also check the Windows firewall (step 1). If the PC's IP address has changed, redo step 3.</td></tr>
   <tr><td>"Port 4323 is already used"</td><td>Another program holds that port: another NetISO server left open, or sometimes an antivirus. Close the other server. If nothing helps, restart the PC.</td></tr>
   <tr><td>"Sync failed"</td><td>Aurora must be open on the console during the sync. Check the console's IP address. The FTP user and password are Aurora's (<code>xboxftp</code> / <code>xboxftp</code> by default).</td></tr>
   <tr><td>The games do not show up in Aurora</td><td>Redo step 5 and run a scan again.</td></tr>
   <tr><td>A game shows up without a cover</td><td>Aurora downloads covers itself when the console has Internet access. Some install or add-on discs have no cover.</td></tr>
-  <tr><td>An ISO is marked "Skipped" in the log</td><td>The file is not a valid Xbox 360 ISO, or it is still being copied.</td></tr>
+  <tr><td>An ISO is marked "Skipped" in the log</td><td>The file is not a valid Xbox 360 ISO, or it is still being copied. "Incomplete ISO" means the file is shorter than the disc: the download or the copy was interrupted. Get the file again.</td></tr>
+  <tr><td>A game installed on the console stays on its loading screen (Battlefield 4...)</td><td>Some games need data installed from their disc first. In a game folder, that data is a file under <code>Content\0000000000000000\&lt;Title ID&gt;\</code>: copy that <code>Content</code> folder to the root of the console's hard disk, so the file ends up in <code>Hdd1:\Content\0000000000000000\&lt;Title ID&gt;\</code>. Battlefield 4 also starts its campaign from disc 2: launched from disc 1, the campaign stays on a black screen.</td></tr>
   <tr><td>Slow loading or stutter</td><td>Use an Ethernet cable instead of Wi-Fi, and keep "Fast loading" ticked.</td></tr>
   <tr><td>The "Console screen" window stays empty</td><td>Aurora must be open, with its HTTP server enabled in its settings. Also check the web user and password in area 3.</td></tr>
 </table>
 
-<div class="note"><b>Antivirus.</b> NetISO Manager sends nothing to the Internet: it only talks to your console, on your own network. If your antivirus asks, allow it on the private network.</div>
+<div class="note"><b>Antivirus.</b> NetISO Manager talks to your console, on your own network. Its only Internet access is, at start-up, asking GitHub whether a newer version exists; it sends nothing about you. If your antivirus asks, allow it on the private network.</div>
 
 <h2 id="support">Support the project</h2>
 <p>NetISO Manager is free and will stay free. If you find it useful, you can support its development: <a href="https://ko-fi.com/x360remap">ko-fi.com/x360remap</a></p>

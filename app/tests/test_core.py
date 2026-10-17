@@ -408,5 +408,56 @@ class LaunchIniTests(unittest.TestCase):
             netiso_console.ini_to_ftp_path("Mu:\\NetISO.xex")
 
 
+class PcAddressTests(unittest.TestCase):
+    """The PC got a new address from the router: the plugin's .txt must follow."""
+    INI = LaunchIniTests.INI.replace("plugin2 = ", "plugin2 = Hdd:\\Apps\\NetISO.xex")
+
+    def setUp(self):
+        self.files = {"/Hdd1/launch.ini": self.INI.encode("latin-1"),
+                      "/Hdd1/Apps/NetISO.xex": b"plugin",
+                      "/Hdd1/Apps/NetISO.xex.txt": b"192.168.1.100"}
+        self.written = []
+
+        def read_file(ftp, path):
+            return self.files.get(path)
+
+        def write_file(ftp, path, data):
+            self.files[path] = data
+            self.written.append(path)
+
+        def list_dir(ftp, folder):
+            return [(p.rsplit("/", 1)[1], False) for p in self.files if p.rsplit("/", 1)[0] == folder]
+
+        for name, fake in (("read_file", read_file), ("write_file", write_file), ("list_dir", list_dir)):
+            self.addCleanup(setattr, netiso_console, name, getattr(netiso_console, name))
+            setattr(netiso_console, name, fake)
+        self.log = []
+
+    def check(self, pc_ip):
+        return netiso_console.check_pc_address(None, pc_ip, self.log.append)
+
+    def test_rewrites_an_old_address_and_says_so(self):
+        self.assertEqual(self.check("192.168.1.101"), "192.168.1.100")
+        self.assertEqual(self.files["/Hdd1/Apps/NetISO.xex.txt"], b"192.168.1.101")
+        self.assertEqual(len(self.log), 1)
+
+    def test_leaves_the_right_address_alone(self):
+        self.assertIsNone(self.check("192.168.1.100"))
+        self.assertEqual(self.written, [])
+
+    def test_writes_a_missing_address_file(self):
+        del self.files["/Hdd1/Apps/NetISO.xex.txt"]
+        self.assertEqual(self.check("192.168.1.101"), "")
+        self.assertEqual(self.files["/Hdd1/Apps/NetISO.xex.txt"], b"192.168.1.101")
+
+    def test_does_nothing_when_the_plugin_is_not_installed(self):
+        self.files["/Hdd1/launch.ini"] = LaunchIniTests.INI.encode("latin-1")
+        self.assertIsNone(self.check("192.168.1.101"))
+        del self.files["/Hdd1/Apps/NetISO.xex"]
+        self.files["/Hdd1/launch.ini"] = self.INI.encode("latin-1")
+        self.assertIsNone(self.check("192.168.1.101"))
+        self.assertEqual(self.written, [])
+
+
 if __name__ == "__main__":
     unittest.main()

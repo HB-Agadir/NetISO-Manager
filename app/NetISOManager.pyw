@@ -12,10 +12,13 @@ import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
 import netiso_console
+import netiso_content
 import netiso_i18n
 import netiso_iso
+import netiso_network
 import netiso_nova
 import netiso_server
+import netiso_tools
 import netiso_winstart
 from netiso_i18n import tr
 
@@ -25,11 +28,14 @@ SCRIPT_PATH = os.path.abspath(__file__)
 STUB_PATH = os.path.join(APP_DIR, "stub.xex")
 SETTINGS_PATH = os.path.join(os.environ.get("APPDATA", APP_DIR), "NetISOManager", "settings.json")
 TRACE_PATH = os.path.join(os.path.dirname(SETTINGS_PATH), "server_trace.log")
+netiso_iso.CHECKED_PATH = os.path.join(os.path.dirname(SETTINGS_PATH), "checked_isos.json")
+netiso_iso.load_checked()
 DONATION_URL = "https://ko-fi.com/x360remap"
 # The guide ships inside the bundle when frozen, beside the app folder otherwise.
 DOCS_DIRS = (os.path.join(APP_DIR, "docs"), os.path.join(APP_DIR, "..", "docs"))
 WATCH_INTERVAL_MS = 15000
 STATUS_INTERVAL_MS = 1000
+ADDRESS_CHECK_MS = 5 * 60 * 1000          # how often the PC address on the console is checked
 PROMPT_NAMES_MAX = 8
 DEFAULTS = {
     "language": "en",
@@ -48,7 +54,11 @@ DEFAULTS = {
     "autostart_server": True,
     "welcome_shown": False,
     "active_discs": {},  # Title ID (hex) -> disc number launched by the game's tile
+    "xenia_path": "",          # xenia_canary.exe, chosen the first time "Play on this PC" is used
+    "update_dismissed": "",    # release tag the user chose not to download
+    "refresh_aurora": True,    # restart Aurora (when idle) as the server starts or stops
 }
+AWAKE_IDLE_S = 600             # the PC may sleep again after this long without a read
 
 
 def load_settings():
@@ -147,16 +157,50 @@ class ConsoleView(tk.Toplevel):
         self.destroy()
 
 
+class ChecksWindow(tk.Toplevel):
+    """Results of the setup test, one line per check, with the report button."""
+
+    COLOURS = {"ok": "#1a7f37", "warn": "#9a6700", "fail": "#cf222e"}
+    MARKS = {"ok": "OK", "warn": "!", "fail": "X"}
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.title(tr("check_title"))
+        self.app = app
+        self.text = tk.Text(self, width=90, height=16, wrap="word", font=("Segoe UI", 9))
+        self.text.pack(fill="both", expand=True, padx=8, pady=8)
+        for status, colour in self.COLOURS.items():
+            self.text.tag_configure(status, foreground=colour, font=("Segoe UI", 9, "bold"))
+        self.text.insert("end", tr("check_running"))
+        self.text.configure(state="disabled")
+        ttk.Button(self, text=tr("report_button"), command=app._copy_report).pack(pady=(0, 8))
+        self.protocol("WM_DELETE_WINDOW", self.close)
+
+    def show(self, results):
+        self.text.configure(state="normal")
+        self.text.delete("1.0", "end")
+        for status, line in results:
+            self.text.insert("end", "[%s] " % self.MARKS[status], status)
+            self.text.insert("end", line + "\n\n")
+        counts = {k: sum(1 for s, _ in results if s == k) for k in self.COLOURS}
+        self.text.insert("end", tr("check_done", **counts))
+        self.text.configure(state="disabled")
+
+    def close(self):
+        self.app.checks_window = None
+        self.destroy()
+
+
 class App(tk.Tk):
     def __init__(self, minimized=False):
         super().__init__()
-        self.title("NetISO Manager")
+        self.title("NetISO Manager " + netiso_tools.APP_VERSION)
         try:
             self.iconbitmap(default=os.path.join(APP_DIR, "icon.ico"))  # default: also for the other windows
         except tk.TclError:
             pass
-        self.geometry("1040x860")
-        self.minsize(900, 740)
+        self.geometry("1040x960")
+        self.minsize(900, 820)
         self.settings = load_settings()
         netiso_i18n.set_language(self.settings["language"])
         self.tiles = []
@@ -169,6 +213,10 @@ class App(tk.Tk):
         self.prompt_next_scan = False
         self.last_bytes = 0
         self.view = None
+        self.checks_window = None
+        self.last_checks = []
+        self.awake = False
+        self.last_read_at = 0.0
 
         self._build()
         self.protocol("WM_DELETE_WINDOW", self._close)
@@ -179,6 +227,12 @@ class App(tk.Tk):
             self._scan()
         if self.settings["autostart_server"]:
             self._autostart_server()
+        threading.Thread(target=lambda: self.events.put(
+            ("update", netiso_tools.newer_release())), daemon=True).start()
+        self.checked_ip = None
+        self.public_warned = False
+        self.marker_written = False      # the "PC is there" file on the console, for Aurora's scripts
+        self.after(3000, self._check_address)
         if minimized:
             self.iconify()
         elif not self.settings["welcome_shown"]:
@@ -212,7 +266,7 @@ class App(tk.Tk):
 
         folders = ttk.LabelFrame(body, text=tr("folders_frame"))
         folders.pack(fill="x", **pad)
-        self.folder_list = tk.Listbox(folders, height=5, activestyle="none")
+        self.folder_list = tk.Listbox(folders, height=4, activestyle="none")
         self.folder_list.pack(side="left", fill="both", expand=True, padx=8, pady=8)
         for folder in self.settings["folders"]:
             self.folder_list.insert("end", folder)
@@ -232,6 +286,7 @@ class App(tk.Tk):
         bar = ttk.Frame(games)
         bar.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
         ttk.Button(bar, text=tr("next_disc"), command=self._next_disc).pack(side="left")
+        ttk.Button(bar, text=tr("xenia_button"), command=self._play_on_pc).pack(side="left", padx=(8, 0))
         self.group_discs = tk.BooleanVar(value=self.settings["group_discs"])
         ttk.Checkbutton(bar, text=tr("group_discs"), variable=self.group_discs,
                         command=self._scan).pack(side="left", padx=16)
@@ -272,17 +327,22 @@ class App(tk.Tk):
             ttk.Label(console, text=tr(key)).grid(row=line, column=0, sticky="w", padx=8, pady=2)
             ttk.Entry(console, textvariable=variable, width=18,
                       show="*" if key.endswith("password") else "").grid(
-                row=line, column=1, sticky="we", padx=8, pady=2)
+                row=line, column=1, columnspan=1 if key == "console_ip" else 2, sticky="we",
+                padx=8, pady=2)
+        self.find_button = ttk.Button(console, text=tr("find_button"), command=self._find_console)
+        self.find_button.grid(row=0, column=2, sticky="e", padx=(0, 8), pady=2)
         console.columnconfigure(1, weight=1)
         self.push_button = ttk.Button(console, text=tr("sync_button"), command=self._push)
-        self.push_button.grid(row=8, column=0, columnspan=2, sticky="we", padx=8, pady=(6, 2))
+        self.push_button.grid(row=8, column=0, columnspan=3, sticky="we", padx=8, pady=(6, 2))
         self.fast_read = tk.BooleanVar(value=self.settings["fast_read"])
         ttk.Checkbutton(console, text=tr("fast_read"), variable=self.fast_read).grid(
-            row=7, column=0, columnspan=2, sticky="w", padx=8)
+            row=7, column=0, columnspan=3, sticky="w", padx=8)
         self.setup_button = ttk.Button(console, text=tr("setup_button"), command=self._setup)
-        self.setup_button.grid(row=9, column=0, columnspan=2, sticky="we", padx=8, pady=2)
+        self.setup_button.grid(row=9, column=0, columnspan=3, sticky="we", padx=8, pady=2)
         ttk.Button(console, text=tr("view_button"), command=self._open_view).grid(
-            row=10, column=0, columnspan=2, sticky="we", padx=8, pady=(2, 8))
+            row=10, column=0, columnspan=3, sticky="we", padx=8, pady=2)
+        self.test_button = ttk.Button(console, text=tr("test_button"), command=self._test_setup)
+        self.test_button.grid(row=11, column=0, columnspan=3, sticky="we", padx=8, pady=(2, 8))
         if self.busy:
             self.push_button.configure(state="disabled")
             self.setup_button.configure(state="disabled")
@@ -407,6 +467,36 @@ class App(tk.Tk):
                 elif kind == "setup":
                     self._set_busy(False)
                     self._setup_finished(payload)
+                elif kind == "update":
+                    self._offer_update(payload)
+                elif kind == "checks":
+                    self.last_checks = payload
+                    self.test_button.configure(state="normal")
+                    if self.checks_window is not None:
+                        self.checks_window.show(payload)
+                elif kind == "found":
+                    self._console_found(payload)
+                elif kind == "network":
+                    if payload != "Public":
+                        self.public_warned = False
+                    elif not self.public_warned:
+                        self.public_warned = True
+                        self._log(tr("network_public_log"))
+                        if messagebox.askyesno("NetISO Manager", tr("network_public_dialog") + "\n\n"
+                                               + tr("network_public_ask")):
+                            pc_ip = local_ip(self.console_ip.get().strip() or None)
+                            if netiso_network.make_private(pc_ip):
+                                self._log(tr("network_private_asked"))
+                                self.public_warned = False
+                                self.after(8000, lambda: threading.Thread(
+                                    target=lambda: self.events.put(("network", netiso_network.network_category(pc_ip))),
+                                    daemon=True).start())
+                elif kind == "address":
+                    pc_ip, old = payload
+                    self.checked_ip = pc_ip
+                    if old is not None:
+                        self._refresh_pc_ip()
+                        messagebox.showinfo("NetISO Manager", tr("address_fixed_dialog"))
         except queue.Empty:
             pass
         self.after(100, self._drain_events)
@@ -495,7 +585,9 @@ class App(tk.Tk):
         self.tree.delete(*self.tree.get_children())
         for tile in self.tiles:
             game = tile.game()
-            disc = (tr("disc_of", disc=game.disc, count=len(tile.games)) if tile.multi_disc
+            disc = (tr("disc_of", disc=game.disc, count=len(tile.games))
+                    + ("" if game.role == "game" else " (%s)" % tr("role_" + game.role))
+                    if tile.multi_disc
                     else "%d/%d" % (game.disc, game.discs))
             self.tree.insert("", "end", iid=tile.name, values=(
                 tile.name, labels.get(self.states.get(tile.name), tr("state_pending")),
@@ -608,13 +700,15 @@ class App(tk.Tk):
             messagebox.showerror("NetISO Manager", tr("stub_missing", error=error))
             return
         tiles = list(self.tiles)
+        pc_ip = local_ip(settings["console_ip"])
         self._set_busy(True)
         self._log(tr("sync_start", count=len(tiles), host=settings["console_ip"]))
 
         def work():
             try:
                 states = netiso_console.sync(
-                    settings, tiles, stub, lambda text: self.events.put(("log", text)))
+                    settings, tiles, stub, lambda text: self.events.put(("log", text)),
+                    pc_ip, lambda old: self.events.put(("address", (pc_ip, old))))
                 sent = sum(1 for state in states.values() if state == "netiso")
                 message = tr("sync_done", netiso=sent, console=len(states) - sent)
             except (netiso_console.ConsoleError, netiso_iso.IsoError) as error:
@@ -664,6 +758,54 @@ class App(tk.Tk):
         else:
             self._log(tr("setup_failed", error=detail))
 
+    def _check_address(self):
+        """Every few minutes, and once at launch: when this PC's address is not the one
+        last confirmed on the console, makes sure the plugin points at it."""
+        self.after(ADDRESS_CHECK_MS, self._check_address)
+        console_ip = self.console_ip.get().strip()
+        pc_ip = local_ip(console_ip) if console_ip else None
+        if not pc_ip:
+            return
+        threading.Thread(target=lambda: self.events.put(
+            ("network", netiso_network.network_category(pc_ip))), daemon=True).start()
+        if self.server.running and not self.marker_written and not self.busy:
+            self._set_marker(True)
+        if pc_ip == self.checked_ip or self.busy:
+            return
+        settings = dict(self._collect_settings())
+
+        def work():
+            try:
+                old = netiso_console.fix_pc_address(
+                    settings, pc_ip, lambda text: self.events.put(("log", text)))
+            except netiso_console.ConsoleError:
+                return                   # console off: tried again later
+            self.events.put(("address", (pc_ip, old)))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _set_marker(self, online, wait=0.0):
+        """Writes (online) or removes the file that tells Aurora's NetISO subtitle and
+        filter that the PC is serving games. Silent when the console is off."""
+        settings = dict(self._collect_settings())
+        if not settings["console_ip"]:
+            return
+
+        def work():
+            try:
+                netiso_console.set_pc_online(settings, online)
+                self.marker_written = online
+            except netiso_console.ConsoleError:
+                return
+            if settings.get("refresh_aurora", True) and netiso_content.restart_aurora_if_idle(
+                    settings["console_ip"], settings["http_user"], settings["http_password"]):
+                self.events.put(("log", tr("aurora_refreshed")))
+
+        worker = threading.Thread(target=work, daemon=True)
+        worker.start()
+        if wait:
+            worker.join(wait)
+
     # ---- server
 
     def _autostart_server(self, attempts=10):
@@ -684,6 +826,7 @@ class App(tk.Tk):
     def _toggle_server(self):
         if self.server.running:
             self.server.stop()
+            self._set_marker(False)
         else:
             try:
                 self.server.start()
@@ -703,7 +846,16 @@ class App(tk.Tk):
         self.after(STATUS_INTERVAL_MS, self._show_playing)
         playing, total = self.server.status()
         rate = (total - self.last_bytes) / 1e6 / (STATUS_INTERVAL_MS / 1000)
+        if total != self.last_bytes:
+            self.last_read_at = time.time()
         self.last_bytes = total
+        # A PC that sleeps mid-game crashes the game on the console: stay awake
+        # while the console reads, give the permission back once it stops.
+        awake = bool(playing) and time.time() - self.last_read_at < AWAKE_IDLE_S
+        if awake != self.awake:
+            self.awake = awake
+            netiso_tools.keep_awake(awake)
+            self._log(tr("awake_on") if awake else tr("awake_off"))
         self.playing.set(tr("playing_value", name=playing[0], disc=playing[1], rate=rate)
                          if playing else tr("nothing_playing"))
 
@@ -714,11 +866,100 @@ class App(tk.Tk):
             self._log(str(error))
         self.with_windows.set(netiso_winstart.is_enabled())
 
+    # ---- 1.3 tools
+
+    def _offer_update(self, tag):
+        if not tag or tag == self.settings.get("update_dismissed"):
+            return
+        if messagebox.askyesno("NetISO Manager", tr(
+                "update_available", tag=tag, current=netiso_tools.APP_VERSION)):
+            webbrowser.open(netiso_tools.RELEASES_PAGE)
+        else:
+            self.settings["update_dismissed"] = tag
+            save_settings(self._collect_settings())
+
+    def _test_setup(self):
+        settings = dict(self._collect_settings())
+        save_settings(settings)
+        pc_ip = local_ip(settings["console_ip"]) if settings["console_ip"] else None
+        running = self.server.running
+        if self.checks_window is None:
+            self.checks_window = ChecksWindow(self)
+        else:
+            self.checks_window.lift()
+        self.test_button.configure(state="disabled")
+        threading.Thread(target=lambda: self.events.put(
+            ("checks", netiso_tools.run_checks(settings, pc_ip, running))), daemon=True).start()
+
+    def _copy_report(self):
+        report = netiso_tools.diagnostic_report(
+            self._collect_settings(), self.last_checks, self.tiles,
+            self.log.get("1.0", "end-1c"), self.server.running)
+        self.clipboard_clear()
+        self.clipboard_append(report)
+        messagebox.showinfo("NetISO Manager", tr("report_copied"))
+
+    def _find_console(self):
+        self.find_button.configure(state="disabled")
+        self._log(tr("find_running"))
+        pc_ip = local_ip(None)
+        user = self.http_user.get().strip() or "xboxhttp"
+        password = self.http_password.get().strip() or "xboxhttp"
+
+        def work():
+            hosts = netiso_tools.find_consoles(pc_ip) if pc_ip else []
+            confirmed = [h for h in hosts if netiso_tools.is_aurora(h, user, password)]
+            self.events.put(("found", (confirmed, hosts)))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _console_found(self, payload):
+        confirmed, hosts = payload
+        self.find_button.configure(state="normal")
+        best = (confirmed or hosts or [None])[0]
+        if best is None:
+            self._log(tr("find_none"))
+            messagebox.showinfo("NetISO Manager", tr("find_none"))
+            return
+        self.console_ip.set(best)
+        save_settings(self._collect_settings())
+        self._refresh_pc_ip()
+        self.checked_ip = None           # the new console gets the PC address check
+        self._log(tr("find_found", host=best))
+        others = [h for h in hosts if h != best]
+        if others:
+            self._log(tr("find_others", hosts=", ".join(others)))
+
+    def _play_on_pc(self):
+        selected = self.tree.selection()
+        tile = next((t for t in self.tiles if selected and t.name == selected[0]), None)
+        if tile is None:
+            messagebox.showinfo("NetISO Manager", tr("xenia_no_game"))
+            return
+        xenia = self.settings.get("xenia_path", "")
+        if not xenia or not os.path.isfile(xenia):
+            xenia = filedialog.askopenfilename(title=tr("xenia_pick"),
+                                               filetypes=[("Xenia", "*.exe")])
+            if not xenia:
+                return
+            self.settings["xenia_path"] = os.path.normpath(xenia)
+            save_settings(self._collect_settings())
+        try:
+            netiso_tools.launch_xenia(self.settings["xenia_path"], tile.game())
+            self._log(tr("xenia_started", name=tile.name))
+        except OSError as error:
+            self._log(tr("xenia_failed", error=error))
+            messagebox.showerror("NetISO Manager", tr("xenia_failed", error=error))
+
     def _close(self):
+        if self.awake:
+            netiso_tools.keep_awake(False)
         save_settings(self._collect_settings())
         if self.view is not None:
             self.view.close()
         self.server.stop()
+        if self.marker_written:
+            self._set_marker(False, wait=4)
         self.destroy()
 
 

@@ -1,6 +1,7 @@
 """Reads game identifiers from Xbox 360 ISO images and builds Aurora tiles."""
 
 import hashlib
+import json
 import os
 import re
 import struct
@@ -25,6 +26,29 @@ class IsoError(Exception):
     pass
 
 
+# What a disc is for, read from its file name (Redump-style tags) and Title ID.
+# Watch_Dogs: "(Disc 1) (Installation Disc)" then "(Disc 2) (Game Disc)";
+# Resident Evil 6: "(Disc 2) (Voice Over Pack)" with the generic Title ID.
+GAME_DISC_TAG = re.compile(r"game disc|\(game\)|play disc", re.IGNORECASE)
+INSTALL_DISC_TAG = re.compile(r"install", re.IGNORECASE)
+EXTRA_DISC_TAG = re.compile(r"voice|language|lang\.? pack|hd content|texture|add-?on|content disc|bonus",
+                            re.IGNORECASE)
+
+
+def disc_role(path, title_id):
+    """"game", "install" (installs data to the hard disk) or "extra" (voices, textures...)."""
+    name = os.path.basename(path)
+    if GAME_DISC_TAG.search(name):
+        return "game"
+    if title_id == GENERIC_DISC_TITLE:
+        return "extra"
+    if INSTALL_DISC_TAG.search(name):
+        return "install"
+    if EXTRA_DISC_TAG.search(name):
+        return "extra"
+    return "game"
+
+
 class Game:
     """One disc on the PC, as an ISO file or as a folder of extracted game files."""
 
@@ -41,6 +65,7 @@ class Game:
         # What the console reports for this disc once installed; disc numbers
         # may be corrected below, this stays as read from the disc.
         self.console_key = (title_id, disc)
+        self.role = disc_role(path, title_id)
 
     def open(self):
         """Returns the disc image the console will read: .size, .read(offset, length), .close()."""
@@ -63,7 +88,10 @@ class Tile:
     def __init__(self, name, games):
         self.name = name  # tile folder name, also the name the server lists
         self.games = sorted(games, key=lambda game: game.disc)
-        self.active = self.games[0].disc  # disc served when the tile is launched
+        # Disc served when the tile is launched: the first one you play, not an
+        # installation or voice disc (those stay one trigger pull away).
+        playable = [game for game in self.games if game.role == "game"] or self.games
+        self.active = playable[0].disc
 
     @property
     def title_id(self):
@@ -127,6 +155,126 @@ def find_root_file(f, partition, wanted):
             if child not in (0, 0xFFFF):
                 pending.append(child * 4)
     raise IsoError(tr("file_missing", name=wanted))
+
+
+ATTR_DIRECTORY = 0x10
+
+
+def walk_iso(f, partition):
+    """Yields (path, sector, size, is_dir) for every entry of the disc, folders before
+    their content. path uses "/" and is relative to the disc root."""
+    f.seek(partition + 32 * SECTOR + len(XDVDFS_MAGIC))
+    root_sector, root_size = struct.unpack("<II", f.read(8))
+    pending = [("", root_sector, root_size)]
+    visited = set()
+    while pending:
+        prefix, table_sector, table_size = pending.pop()
+        if table_sector in visited or table_size == 0:
+            continue
+        visited.add(table_sector)
+        f.seek(partition + table_sector * SECTOR)
+        table = f.read(table_size)
+        if len(table) < table_size:
+            raise IsoError(tr("iso_truncated"))
+        nodes, seen = [0], set()
+        while nodes:
+            pos = nodes.pop()
+            if pos in seen or pos + 14 > len(table):
+                continue
+            seen.add(pos)
+            left, right, sector, size, attr, name_len = struct.unpack_from("<HHIIBB", table, pos)
+            if left == 0xFFFF and right == 0xFFFF:
+                continue
+            name = table[pos + 14:pos + 14 + name_len].decode("ascii", "replace")
+            path = prefix + name
+            is_dir = bool(attr & ATTR_DIRECTORY)
+            yield path, sector, size, is_dir
+            if is_dir:
+                pending.append((path + "/", sector, size))
+            for child in (left, right):
+                if child not in (0, 0xFFFF):
+                    nodes.append(child * 4)
+
+
+# ISOs already found whole, by path: (size, modification time). Walking a disc's
+# directories costs about 0.4 s per ISO on a cold hard disk, so it is done once
+# per file version. The app loads and saves it (CHECKED_PATH).
+CHECKED_PATH = None
+_checked = {}
+
+
+def load_checked():
+    global _checked
+    try:
+        with open(CHECKED_PATH, encoding="utf-8") as f:
+            _checked = {k: tuple(v) for k, v in json.load(f).items()}
+    except (OSError, ValueError, TypeError):
+        _checked = {}
+
+
+def save_checked():
+    if not CHECKED_PATH:
+        return
+    try:
+        with open(CHECKED_PATH, "w", encoding="utf-8") as f:
+            json.dump(_checked, f)
+    except OSError:
+        pass
+
+
+def check_iso(path):
+    """Raises IsoError when the image is cut short: some file lies beyond its end.
+
+    A partial download or an interrupted copy otherwise only shows up as a game
+    that freezes or crashes on the console.
+    """
+    stat = os.stat(path)
+    key = os.path.normcase(os.path.abspath(path))
+    if _checked.get(key) == (stat.st_size, stat.st_mtime):
+        return
+    size = stat.st_size
+    with open(path, "rb") as f:
+        partition = find_partition(f)
+        end = 0
+        for _path, sector, length, is_dir in walk_iso(f, partition):
+            end = max(end, partition + sector * SECTOR + length)
+    if end > size:
+        raise IsoError(tr("iso_truncated"))
+    _checked[key] = (stat.st_size, stat.st_mtime)
+
+
+def extract_iso(iso_path, destination, progress=None, chunk=4 * 1024 * 1024):
+    """Writes every file of the disc under destination (a game folder that runs as is).
+
+    progress(done_bytes, total_bytes) is called as data is written. Returns the
+    number of files written.
+    """
+    with open(iso_path, "rb") as f:
+        partition = find_partition(f)
+        entries = list(walk_iso(f, partition))
+        total = sum(length for _p, _s, length, is_dir in entries if not is_dir)
+        done = files = 0
+        os.makedirs(destination, exist_ok=True)
+        for rel, sector, length, is_dir in entries:
+            target = os.path.join(destination, *rel.split("/"))
+            if is_dir:
+                os.makedirs(target, exist_ok=True)
+                continue
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            f.seek(partition + sector * SECTOR)
+            left = length
+            with open(target, "wb") as out:
+                while left:
+                    data = f.read(min(chunk, left))
+                    if not data:
+                        raise IsoError(tr("iso_truncated"))
+                    out.write(data)
+                    left -= len(data)
+                    done += len(data)
+                    if progress:
+                        progress(done, total)
+            files += 1
+    return files
 
 
 def xex_execution_info_offset(header):
@@ -424,11 +572,13 @@ def scan(folders, recursive, group_discs=True):
                 size = folder_size(path)[0]
             else:
                 title_id, media_id, disc, discs = read_iso_ids(path)
+                check_iso(path)
                 size = None
         except (IsoError, OSError, struct.error) as error:
             errors.append((path, str(error)))
             continue
         games.append(Game(path, clean_title(path), title_id, media_id, disc, discs, size))
+    save_checked()
     return build_tiles(games, group_discs), errors
 
 

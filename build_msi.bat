@@ -1,11 +1,12 @@
 @echo off
-rem Builds dist\NetISOManager-<version>-x64.msi: the app, its launcher and the user guides.
+rem Builds dist\NetISOManager-<version>-x64.msi (the app, its launcher and the user guides)
+rem and dist\NetISOManager-<version>-portable.zip (the same program folder, nothing to install).
 rem Needs Python 3 and the WiX command line tool with its firewall extension:
 rem   dotnet tool install --global wix --version 5.0.2
 rem   wix extension add -g WixToolset.Firewall.wixext/5.0.2
 setlocal
 cd /d "%~dp0"
-set VERSION=1.2.1
+set VERSION=1.3.0
 if not exist build_env\Scripts\python.exe python -m venv build_env || exit /b 1
 build_env\Scripts\python.exe -m pip install --disable-pip-version-check pyinstaller || exit /b 1
 build_env\Scripts\python.exe -m PyInstaller --noconfirm --clean --onedir --windowed ^
@@ -14,4 +15,5 @@ build_env\Scripts\python.exe -m PyInstaller --noconfirm --clean --onedir --windo
     --workpath "%~dp0build_env\work" --specpath "%~dp0build_env" ^
     "%~dp0app\NetISOManager.pyw" || exit /b 1
 wix build -arch x64 -ext WixToolset.Firewall.wixext -d Version=%VERSION% -d "Source=%~dp0dist\onedir\NetISO Manager" -d "Icon=%~dp0app\icon.ico" ^
-    -o "%~dp0dist\NetISOManager-%VERSION%-x64.msi" "%~dp0installer\NetISOManager.wxs"
+    -o "%~dp0dist\NetISOManager-%VERSION%-x64.msi" "%~dp0installer\NetISOManager.wxs" || exit /b 1
+powershell -NoProfile -Command "Compress-Archive -Force -Path '%~dp0dist\onedir\NetISO Manager' -DestinationPath '%~dp0dist\NetISOManager-%VERSION%-portable.zip'" || exit /b 1

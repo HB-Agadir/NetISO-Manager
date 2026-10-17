@@ -64,8 +64,7 @@
 <div class="step"><b class="n">Étape 3.</b> <b>Reliez la console.</b>
 <ol>
   <li>Allumez la console et laissez-la sur Aurora.</li>
-  <li>Relevez son adresse IP dans les réglages réseau de la console ou d'Aurora (exemple : <code>192.168.1.50</code>).</li>
-  <li>Dans la zone 3 de NetISO Manager, tapez cette adresse dans « Adresse IP de la console ».</li>
+  <li>Dans la zone 3 de NetISO Manager, cliquez sur <b>« Chercher »</b> à côté de « Adresse IP de la console » : le logiciel cherche la console sur votre réseau et remplit son adresse. S'il ne trouve rien, relevez l'adresse dans les réglages réseau de la console ou d'Aurora (exemple : <code>192.168.1.50</code>) et tapez-la.</li>
   <li>Cliquez sur <b>« Installer le plugin sur la console »</b> et confirmez. Le logiciel envoie le plugin, lui indique l'adresse de votre PC et l'ajoute au démarrage de la console.</li>
   <li><b>Redémarrez la console.</b></li>
 </ol>
@@ -100,11 +99,31 @@
 <p>Pendant l'installation, vous n'avez pas besoin de changer d'entrée HDMI ni de regarder la télévision. Cliquez sur <b>« Voir l'écran de la console »</b> dans la zone 3 : une fenêtre affiche ce que montre la console, avec une nouvelle image toutes les trois secondes environ. C'est une aide pour suivre les étapes, pas une vidéo : la manette reste nécessaire pour naviguer dans Aurora.</p>
 <p>Cette fonction utilise le serveur web d'Aurora. S'il vous demande un utilisateur et un mot de passe, ce sont ceux des réglages d'Aurora, à la rubrique du serveur HTTP (<code>xboxhttp</code> / <code>xboxhttp</code> par défaut).</p>
 
+<h3>Seulement les jeux jouables : la vue « Available games »</h3>
+<p>Chaque « Synchroniser avec Aurora » dépose aussi trois petits scripts dans Aurora. Lancez-en un une seule fois, et Aurora s'ouvrira sur une vue des jeux réellement jouables :</p>
+<ol>
+  <li>Dans Aurora, ouvrez les scripts utilitaires et lancez <b>« NetISO Setup »</b>.</li>
+  <li>Répondez « Yes » : Aurora redémarre.</li>
+</ol>
+<p>Ensuite, Aurora s'ouvre sur la vue <b>« Available games »</b> :</p>
+<ul>
+  <li>les jeux joués depuis le PC sont masqués quand le serveur de NetISO Manager ne tourne pas, et reviennent quand il tourne ;</li>
+  <li>les disques d'installation et les packs de voix, qui ne sont pas des jeux, sont masqués. Tous les disques de jeu restent visibles : certains jeux, comme Battlefield 4, lancent leur campagne depuis le disque 2.</li>
+</ul>
+<p>Aurora n'applique ses filtres qu'en construisant sa liste. Quand le serveur démarre ou s'arrête, NetISO Manager relance donc Aurora pour vous, mais seulement si Aurora est à l'écran : jamais pendant une partie.</p>
+<p>Pour tout revoir, choisissez la vue « Show All » dans le menu Quick View d'Aurora. Vous pouvez aussi choisir le sous-titre <b>« NetISO »</b> dans Aurora : sous chaque jeu, il indique s'il se joue depuis la console ou le PC, ou que le PC est éteint.</p>
+<p>Si le PC s'arrête brutalement (coupure de courant, plantage), les jeux du PC restent visibles jusqu'au prochain démarrage de NetISO Manager. La console affiche alors « PC not reachable » si vous en lancez un.</p>
+
+<h3>Jouer sur le PC avec Xenia</h3>
+<p>Vos jeux peuvent aussi tourner sur le PC dans l'émulateur Xenia, que vous installez vous-même. Sélectionnez un jeu dans la zone 2 et cliquez sur <b>« Jouer sur ce PC (Xenia) »</b>. La première fois, indiquez au logiciel où se trouve <code>xenia_canary.exe</code>. Tous les jeux ne fonctionnent pas dans Xenia, et il demande un PC assez puissant : un jeu qui échoue dans Xenia peut très bien marcher sur la console.</p>
+
 <h3>Chargements rapides</h3>
 <p>La case « Chargements rapides » est cochée par défaut : les jeux se chargent environ deux fois plus vite. Si un jeu se comporte de façon anormale, décochez-la, cliquez sur « Synchroniser avec Aurora », puis redémarrez la console.</p>
 
 <h3>Pour ne plus y penser</h3>
 <p>Cochez « Démarrer le serveur à l'ouverture » et « Démarrer avec Windows ». Le logiciel se lance alors tout seul avec votre PC, fenêtre réduite.</p>
+<p>Pendant que la console lit un jeu, le PC ne se met pas en veille : un PC qui s'endort en pleine partie fait planter le jeu. Dix minutes après la dernière lecture, Windows peut de nouveau se mettre en veille comme d'habitude.</p>
+<p>Si votre box donne une nouvelle adresse au PC (souvent après son redémarrage), NetISO Manager s'en aperçoit en quelques minutes et écrit la nouvelle sur la console. Il vous demande alors de redémarrer la console.</p>
 
 <h2 id="disques">Jeux sur plusieurs disques</h2>
 <p>Un jeu qui tient sur plusieurs disques n'occupe qu'une seule place dans Aurora. Vous choisissez le disque avec la manette, au moment de lancer le jeu :</p>
@@ -117,24 +136,28 @@
 <p>Vous avez environ deux secondes après l'appui sur <kbd>A</kbd> pour presser la gâchette. Le plus simple est de la garder enfoncée dès que l'écran devient noir.</p>
 <p>Quand un jeu vous demande le disque 2 : revenez à Aurora, puis relancez le même jeu en maintenant la gâchette droite. Votre sauvegarde reprend sur le nouveau disque.</p>
 <p>Vous pouvez aussi choisir le disque sur le PC : sélectionnez le jeu dans la zone 2 et cliquez sur « Changer de disque ».</p>
+<p>Une tuile démarre sur le disque de jeu, pas sur un disque d'installation ou de voix : pour Watch_Dogs, le disque 2 (le jeu) plutôt que le disque 1 (l'installation). La liste indique le rôle de chaque disque, par exemple « 1 sur 2 (installation) ». Pour installer depuis ce disque, lancez la tuile en maintenant la gâchette gauche.</p>
 <h3>Vous préférez voir tous les disques dans Aurora ?</h3>
 <p>Décochez « Une seule tuile par jeu multi-disques » sous la liste des jeux, puis cliquez sur « Synchroniser avec Aurora » et relancez un scan. Chaque disque a alors sa propre place dans Aurora et se lance directement, sans passer par les gâchettes.</p>
 
 <h2 id="probleme">En cas de problème</h2>
+<p>Commencez par <b>« Tester ma configuration »</b> dans la zone 3. Il vérifie le serveur, le réseau Windows, la console, le plugin et l'adresse utilisée par le plugin, et dit quoi faire pour chaque problème. Si vous demandez de l'aide sur un forum, cliquez dans cette fenêtre sur <b>« Copier un rapport de diagnostic »</b> et collez le texte dans votre message : il ne contient ni mot de passe, ni adresse complète, ni nom d'utilisateur.</p>
 <table>
   <tr><th>Ce que vous voyez</th><th>Ce qu'il faut faire</th></tr>
+  <tr><td>La console affiche « PC not reachable »</td><td>Lancez « Tester ma configuration ». Causes habituelles : le serveur est arrêté, Windows classe votre réseau comme Public (Paramètres Windows &gt; Réseau et Internet &gt; Ethernet ou Wi-Fi &gt; Type de profil réseau &gt; Privé), ou l'adresse du PC a changé et la console n'a pas encore été redémarrée.</td></tr>
   <tr><td>Le jeu ne démarre pas et vous revenez à Aurora</td><td>Vérifiez que le PC est allumé, que NetISO Manager est ouvert et que la zone 4 indique « En marche ». Le journal doit afficher « Console connectée ».</td></tr>
   <tr><td>Le journal n'affiche jamais « Console connectée »</td><td>Refaites l'étape 3 puis redémarrez la console. Vérifiez aussi le pare-feu de Windows (étape 1). Si l'adresse IP du PC a changé, refaites l'étape 3.</td></tr>
   <tr><td>« Le port 4323 est déjà utilisé »</td><td>Un autre programme occupe ce port : un autre serveur NetISO resté ouvert, ou parfois un antivirus. Fermez l'autre serveur. Si rien n'y fait, redémarrez le PC.</td></tr>
   <tr><td>« Échec de la synchronisation »</td><td>Aurora doit être ouvert sur la console pendant la synchronisation. Vérifiez l'adresse IP de la console. L'utilisateur et le mot de passe FTP sont ceux d'Aurora (<code>xboxftp</code> / <code>xboxftp</code> par défaut).</td></tr>
   <tr><td>Les jeux n'apparaissent pas dans Aurora</td><td>Refaites l'étape 5 et relancez un scan.</td></tr>
   <tr><td>Un jeu apparaît sans pochette</td><td>Aurora télécharge les pochettes lui-même quand la console a accès à Internet. Certains disques d'installation ou de contenu additionnel n'ont pas de pochette.</td></tr>
-  <tr><td>Un ISO est marqué « Ignoré » dans le journal</td><td>Le fichier n'est pas un ISO Xbox 360 valide, ou sa copie n'est pas terminée.</td></tr>
+  <tr><td>Un ISO est marqué « Ignoré » dans le journal</td><td>Le fichier n'est pas un ISO Xbox 360 valide, ou sa copie n'est pas terminée. « ISO incomplet » veut dire que le fichier est plus court que le disque : le téléchargement ou la copie a été interrompu. Récupérez le fichier à nouveau.</td></tr>
+  <tr><td>Un jeu installé sur la console reste sur son écran de chargement (Battlefield 4...)</td><td>Certains jeux ont besoin de données installées depuis leur disque. Dans un dossier de jeu, ces données sont un fichier sous <code>Content\0000000000000000\&lt;Title ID&gt;\</code> : copiez ce dossier <code>Content</code> à la racine du disque dur de la console, pour que le fichier se retrouve dans <code>Hdd1:\Content\0000000000000000\&lt;Title ID&gt;\</code>. Battlefield 4 lance en plus sa campagne depuis le disque 2 : lancée depuis le disque 1, la campagne reste sur un écran noir.</td></tr>
   <tr><td>Chargements lents ou saccades</td><td>Reliez la console par câble Ethernet plutôt qu'en Wi-Fi, et gardez « Chargements rapides » coché.</td></tr>
   <tr><td>La fenêtre « Écran de la console » reste vide</td><td>Aurora doit être ouvert, avec son serveur HTTP activé dans ses réglages. Vérifiez aussi l'utilisateur et le mot de passe web dans la zone 3.</td></tr>
 </table>
 
-<div class="note"><b>Antivirus.</b> NetISO Manager n'envoie rien sur Internet : il ne communique qu'avec votre console, sur votre réseau. Si votre antivirus l'interroge, autorisez-le sur le réseau privé.</div>
+<div class="note"><b>Antivirus.</b> NetISO Manager communique avec votre console, sur votre réseau. Son seul accès à Internet consiste, au démarrage, à demander à GitHub si une version plus récente existe ; il n'envoie rien sur vous. Si votre antivirus l'interroge, autorisez-le sur le réseau privé.</div>
 
 <h2 id="soutien">Soutenir le projet</h2>
 <p>NetISO Manager est gratuit et le restera. S'il vous est utile, vous pouvez soutenir son développement : <a href="https://ko-fi.com/x360remap">ko-fi.com/x360remap</a></p>
